@@ -13,9 +13,8 @@ Version 1 is provided in source form only, so you'll need a Common Lisp environm
 
 Just clone this repository and then load "main.lisp", for example:
 
-'''sh
+```sh
 sbcl --load main.lisp
-'''
+```
 
 Follow the on-screen prompts to play.
-
