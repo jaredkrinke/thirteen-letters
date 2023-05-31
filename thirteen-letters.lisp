@@ -9,6 +9,10 @@
 (in-package :13l)
 
 ;;; General utility functions
+(defun get-time ()
+  "Return a timestamp (in seconds, as a ratio)"
+  (/ (get-internal-real-time) internal-time-units-per-second))
+
 (defun get-random (sequence)
   "Randomly selects an item from SEQUENCE"
   (nth (random (length sequence)) sequence))
@@ -135,6 +139,30 @@
   (format t "TODO: ~a~%" note))
   ;(error "TODO: fix!"))
 
+;;; Leaderboard entries
+(defclass entry ()
+  ((player-id :initarg :player-id)
+   (word :initarg :word)
+   (time :initform (get-time))))
+
+(defgeneric entry-word-length (entry))
+
+(defmethod entry-word-length ((entry entry))
+  (length (slot-value entry 'word)))
+
+(defmethod print-object ((object entry) stream)
+  (print-unreadable-object (object stream :type t)
+    (with-slots (player-id word time) object
+      (format stream "~s: ~s (~f)" player-id word time))))
+
+;;; TODO: Seems like a macro might make sense...
+(defun entry< (a b)
+  (let ((a-length (entry-word-length a))
+	(b-length (entry-word-length b)))
+    (or (> a-length b-length)
+	(and (= a-length b-length)
+	     (< (slot-value a 'time) (slot-value b 'time))))))
+
 ;;; Server
 (defparameter *round-time* 3 "Length of each round (in seconds)")
 (defparameter *intermission-time* 1 "Length of time between rounds (in seconds)")
@@ -179,12 +207,29 @@
   "Broadcasts the results of the round that just ended"
   (broadcast-result))
 
-(defun run-round()
+(defun run-round ()
   "Runs a single round"
   (lp:submit-task *queue* #'round-start)
   (sleep *round-time*)
   (lp:submit-task *queue* #'round-end)
   (sleep *intermission-time*))
+
+(defun valid-word-p (word)
+  "Returns true if WORD is a real word and uses letters from *SCRAMBLED*"
+  (TODO "Test word is valid!")
+  t)
+
+(defun update-leaderboard (player-id word)
+  "Updates the leaderboard (note: WORD is assumed valid"
+  (setf *leaderboard* (stable-sort (cons (make-instance 'entry
+							:player-id player-id
+							:word word)
+					 (delete-if #'(lambda (entry) (equal player-id (slot-value entry 'player-id))) *leaderboard*))
+				   #'entry<)))
+
+(defun handle-guess (player-name word)
+  "Updates the current leaderboard with PLAYER-NAME's new score, if valid"
+  (if (valid-word-p word) (update-leaderboard player-name word)))
 
 (defun run-server ()
   "Runs the server"
@@ -195,3 +240,7 @@
 	  do (run-round))
   (lp:end-kernel :wait t)
   (setf *queue* nil))
+
+(defun stop-server ()
+  "Stops the server"
+  (setf *done* t))
