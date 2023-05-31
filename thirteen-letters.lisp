@@ -2,6 +2,7 @@
   (:documentation "Thirteen-letter word scramble game")
   (:nicknames :13l)
   (:use :cl)
+  (:local-nicknames (:lp :lparallel))
   (:export #:play
 	   #:menu))
 
@@ -128,3 +129,69 @@
 		    (play (1- difficulty)))
 		   (t
 		    (format t "~%Invalid input!~%"))))))
+
+;;; TODO
+(defun TODO (&optional note)
+  (format t "TODO: ~a~%" note))
+  ;(error "TODO: fix!"))
+
+;;; Server
+(defparameter *round-time* 3 "Length of each round (in seconds)")
+(defparameter *intermission-time* 1 "Length of time between rounds (in seconds)")
+
+(defvar *done* t "True if the server should stop")
+(defvar *queue* nil "Task queue")
+
+;;; Server main worker logic
+(defvar *solution* nil)
+(defvar *scrambled* nil)
+(defvar *round-end* nil)
+(defvar *leaderboard* nil)
+
+(defun broadcast-message (type object)
+  "Broadcasts a message of type TYPE to all players"
+  (let ((message (cons (cons :type type)
+		       object)))
+    (TODO (format nil "Broadcast: ~a" message))))
+
+(defun broadcast-state ()
+  "Broadcasts puzzle state to all players"
+  (let ((state (list (cons :scrambled *scrambled*)
+		     (cons :remaining (float (max 0 (/ (- *round-end* (get-internal-real-time)) internal-time-units-per-second))))
+		     (cons :leaderboard *leaderboard*))))
+    (broadcast-message :state state)))
+
+(defun broadcast-result ()
+  "Broadcasts result to all players"
+  (let ((result (list (cons :solution *solution*)
+		      (cons :leaderboard *leaderboard*))))
+    (broadcast-message :result result)))
+
+(defun round-start (&optional (difficulty 0))
+  "Selects a new puzzle and broadcasts to all players"
+  (setf *solution* (get-random (nth difficulty *bucketed-words*)))
+  (setf *scrambled* (scramble *solution*))
+  (setf *round-end* (+ (get-internal-real-time) *round-time*))
+  (setf *leaderboard* nil)
+  (broadcast-state))
+
+(defun round-end ()
+  "Broadcasts the results of the round that just ended"
+  (broadcast-result))
+
+(defun run-round()
+  "Runs a single round"
+  (lp:submit-task *queue* #'round-start)
+  (sleep *round-time*)
+  (lp:submit-task *queue* #'round-end)
+  (sleep *intermission-time*))
+
+(defun run-server ()
+  "Runs the server"
+  (setf *done* nil)
+  (setf lp:*kernel* (lp:make-kernel 1))
+  (setf *queue* (lp:make-channel))
+    (loop while (not *done*)
+	  do (run-round))
+  (lp:end-kernel :wait t)
+  (setf *queue* nil))

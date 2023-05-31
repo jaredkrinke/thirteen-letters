@@ -1,4 +1,5 @@
 (defsystem #:thirteen-letters
+  :depends-on (#:lparallel)
   :serial t
   :components ((:file "thirteen-letters"))
   :build-operation program-op
