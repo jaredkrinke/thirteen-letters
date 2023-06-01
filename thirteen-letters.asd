@@ -1,5 +1,7 @@
 (defsystem #:thirteen-letters
-  :depends-on (#:lparallel)
+  :depends-on (#:lparallel
+	       #:hunchentoot
+	       #:hunchensocket)
   :serial t
   :components ((:file "thirteen-letters"))
   :build-operation program-op

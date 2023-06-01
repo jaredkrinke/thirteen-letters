@@ -9,6 +9,12 @@
 (in-package :13l)
 
 ;;; General utility functions
+(defvar *verbose* nil)
+
+(defmacro spew (&rest args)
+  "Logs to the console, if *verbose* is non-nil"
+  `(and *verbose* (format t ,@args)))
+
 (defun get-time ()
   "Return a timestamp (in seconds, as a ratio)"
   (/ (get-internal-real-time) internal-time-units-per-second))
@@ -164,8 +170,35 @@
 	     (< (slot-value a 'time) (slot-value b 'time))))))
 
 ;;; Server
+
+;;; WebSocket server
+(defclass socket (hunchensocket:websocket-resource)
+  ()
+  (:documentation "WebSocket server/resource/socket")
+  (:default-initargs :client-class 'client))
+
+(defclass client (hunchensocket:websocket-client)
+  ()
+  (:documentation "WebSocket client"))
+
+(defmethod hunchensocket:client-connected ((socket socket) client)
+  (TODO "Client connected"))
+
+(defmethod hunchensocket:client-disconnected ((socket socket) client)
+  (TODO "Client disconnected"))
+
+(defmethod hunchensocket:text-message-received ((socket socket) client message)
+  (TODO (format nil "Received: ~a" message)))
+
+(defparameter *socket-port* 13131)
+
+(defvar *socket* (make-instance 'socket))
+(defvar *server* (make-instance 'hunchensocket:websocket-acceptor :port *socket-port*))
+
+;;; TODO: Plus or star?
 (defparameter *round-time* 3 "Length of each round (in seconds)")
 (defparameter *intermission-time* 1 "Length of time between rounds (in seconds)")
+(defparameter *server-path* "/ws/13l" "Path to WebSocket interface")
 
 (defvar *done* t "True if the server should stop")
 (defvar *queue* nil "Task queue")
@@ -176,11 +209,18 @@
 (defvar *round-end* nil)
 (defvar *leaderboard* nil)
 
+(defun broadcast (object)
+  "Broadcasts a message to all players"
+  (let ((text (prin1-to-string object)))
+    (spew "Broadcast: ~a~%" text)
+    (loop for client in (hunchensocket:clients *socket*)
+	  do (hunchensocket:send-text-message client text))))
+
 (defun broadcast-message (type object)
   "Broadcasts a message of type TYPE to all players"
   (let ((message (cons (cons :type type)
 		       object)))
-    (TODO (format nil "Broadcast: ~a" message))))
+    (broadcast message)))
 
 (defun broadcast-state ()
   "Broadcasts puzzle state to all players"
@@ -231,13 +271,21 @@
   "Updates the current leaderboard with PLAYER-NAME's new score, if valid"
   (if (valid-word-p word) (update-leaderboard player-name word)))
 
-(defun run-server ()
+(defun start-server ()
   "Runs the server"
   (setf *done* nil)
   (setf lp:*kernel* (lp:make-kernel 1))
   (setf *queue* (lp:make-channel))
-    (loop while (not *done*)
-	  do (run-round))
+
+;  (setf hunchensocket:*websocket-dispatch-table* (list *socket*))
+;  (hunchentoot:start *server*)
+  
+  (loop while (not *done*)
+	do (run-round))
+  
+;  (hunchentoot:stop *server*)
+;  (setf hunchensocket:*websocket-dispatch-table* nil)
+  
   (lp:end-kernel :wait t)
   (setf *queue* nil))
 
