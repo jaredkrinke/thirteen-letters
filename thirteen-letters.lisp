@@ -172,23 +172,27 @@
 ;;; Server
 
 ;;; WebSocket server
+(defvar *clients* nil)
+
 (defclass socket (hunchensocket:websocket-resource)
   ()
   (:documentation "WebSocket server/resource/socket")
   (:default-initargs :client-class 'client))
 
 (defclass client (hunchensocket:websocket-client)
-  ()
+  ((name :initform "(unknown)"))
   (:documentation "WebSocket client"))
 
 (defmethod hunchensocket:client-connected ((socket socket) client)
-  (TODO "Client connected"))
+  (lp:submit-task *queue* 'client-connect client))
 
 (defmethod hunchensocket:client-disconnected ((socket socket) client)
-  (TODO "Client disconnected"))
+  (lp:submit-task *queue* 'client-disconnect client))
 
 (defmethod hunchensocket:text-message-received ((socket socket) client message)
-  (TODO (format nil "Received: ~a" message)))
+  (let ((object (handler-case (json:decode-json-from-string message) (t () nil))))
+    (cond (object
+	   (TODO (format nil "Received: ~a" object))))))
 
 (defun find-websocket-handler (request)
   (if (equal (hunchentoot:script-name request) *socket-path*)
@@ -218,7 +222,7 @@
 
 (defun broadcast (object)
   "Broadcasts a message to all players"
-  (let ((text (prin1-to-string object)))
+  (let ((text (json:encode-json-to-string object)))
     (spew "Broadcast: ~a~%" text)
     (loop for client in (hunchensocket:clients *socket*)
 	  do (hunchensocket:send-text-message client text))))
@@ -241,6 +245,16 @@
   (let ((result (list (cons :solution *solution*)
 		      (cons :leaderboard *leaderboard*))))
     (broadcast-message :result result)))
+
+(defun client-connect (client)
+  (spew "Client connected: ~a~%" client)
+  (push client *clients*)
+  (TODO "Send current state"))
+
+(defun client-disconnect (client)
+  (spew "Client disconnected: ~a~%" client)
+  (setf *clients* (delete-if #'(lambda (c) (eql c client)) *clients*))
+  (TODO "Remove entries from leaderboard?"))
 
 (defun round-start (&optional (difficulty 0))
   "Selects a new puzzle and broadcasts to all players"

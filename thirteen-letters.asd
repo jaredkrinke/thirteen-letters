@@ -1,7 +1,8 @@
 (defsystem #:thirteen-letters
   :depends-on (#:lparallel
 	       #:hunchentoot
-	       #:hunchensocket)
+	       #:hunchensocket
+	       #:cl-json)
   :serial t
   :components ((:file "thirteen-letters"))
   :build-operation program-op
