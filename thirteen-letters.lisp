@@ -190,15 +190,22 @@
 (defmethod hunchensocket:text-message-received ((socket socket) client message)
   (TODO (format nil "Received: ~a" message)))
 
+(defun find-websocket-handler (request)
+  (if (equal (hunchentoot:script-name request) *socket-path*)
+      *socket*))
+
+;;; TODO: Same port as HTTP? If so, rename
 (defparameter *socket-port* 13131)
+(defparameter *socket-path* "/ws/13l" "Path to WebSocket interface")
 
 (defvar *socket* (make-instance 'socket))
-(defvar *server* (make-instance 'hunchensocket:websocket-acceptor :port *socket-port*))
+(defvar *server* (make-instance 'hunchensocket:websocket-acceptor
+				:address "127.0.0.1"
+				:port *socket-port*))
 
 ;;; TODO: Plus or star?
 (defparameter *round-time* 3 "Length of each round (in seconds)")
 (defparameter *intermission-time* 1 "Length of time between rounds (in seconds)")
-(defparameter *server-path* "/ws/13l" "Path to WebSocket interface")
 
 (defvar *done* t "True if the server should stop")
 (defvar *queue* nil "Task queue")
@@ -277,14 +284,14 @@
   (setf lp:*kernel* (lp:make-kernel 1))
   (setf *queue* (lp:make-channel))
 
-;  (setf hunchensocket:*websocket-dispatch-table* (list *socket*))
-;  (hunchentoot:start *server*)
+  (setf hunchensocket:*websocket-dispatch-table* (list 'find-websocket-handler))
+  (hunchentoot:start *server*)
   
   (loop while (not *done*)
 	do (run-round))
   
-;  (hunchentoot:stop *server*)
-;  (setf hunchensocket:*websocket-dispatch-table* nil)
+  (hunchentoot:stop *server*)
+  (setf hunchensocket:*websocket-dispatch-table* nil)
   
   (lp:end-kernel :wait t)
   (setf *queue* nil))
