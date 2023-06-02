@@ -302,14 +302,6 @@
   (cons (cons :type type)
 	object))
 
-(defun send-message (client type object)
-  "Sends a message to the given client"
-  (send client (make-message type object)))
-
-(defun broadcast-message (type object)
-  "Broadcasts a message of type TYPE to all players"
-  (broadcast (make-message type object)))
-
 (defun leaderboard->alist ()
   "Formats *LEADERBOARD* entries as a-lists"
   ;;; TODO: Consider just going straight to JSON?
@@ -320,22 +312,20 @@
 	  *leaderboard*))
 
 (defun get-current-state ()
-  "Gets the current puzzle state"
-  (list (cons :scrambled *scrambled*)
-	(cons :remaining (float (max 0 (/ (- *round-end* (get-internal-real-time))
-					  internal-time-units-per-second))))
-	(cons :leaderboard (leaderboard->alist))))
+  "Gets the current puzzle state (in-progress or results)"
+  (if *round-done*
+      (list (cons :type :result)
+	    (cons :solution *solution*)
+	    (cons :leaderboard (leaderboard->alist)))
+      (list (cons :type :state)
+	    (cons :scrambled *scrambled*)
+	    (cons :remaining (float (max 0 (/ (- *round-end* (get-internal-real-time))
+					      internal-time-units-per-second))))
+	    (cons :leaderboard (leaderboard->alist)))))
 
 (defun broadcast-state ()
   "Broadcasts puzzle state to all players"
-  (let ((state (get-current-state)))
-    (broadcast-message :state state)))
-
-(defun broadcast-result ()
-  "Broadcasts result to all players"
-  (let ((result (list (cons :solution *solution*)
-		      (cons :leaderboard (leaderboard->alist)))))
-    (broadcast-message :result result)))
+  (broadcast (get-current-state)))
 
 (defun client-connect (client)
   "Handles a client connection work item"
@@ -378,7 +368,7 @@
 (defun round-end ()
   "Broadcasts the results of the round that just ended"
   (setf *round-done* t)
-  (broadcast-result))
+  (broadcast-state))
 
 (defun run-round ()
   "Runs a single round"
