@@ -322,10 +322,10 @@
   "Handles a guess work item from the given client"
   (cond ((not *round-done*)
 	 (let ((word (alist-path message :word)))
-	   (if (and word (valid-word-p word))
-	       (progn
-		 (update-leaderboard client word)
-		 (broadcast-state)))))
+	   (if (and word
+		    (valid-word-p word)
+		    (update-leaderboard client word))
+	       (broadcast-state))))
 	(t (spew "Guess arrived after round ended~%"))))
 
 (defun round-start (&optional (difficulty 0))
@@ -355,17 +355,19 @@
   t)
 
 (defun update-leaderboard (client word)
-  "Updates the leaderboard (note: WORD is assumed valid"
-  ;;; TODO: Don't replace if worse than existing guess!
-  (setf *leaderboard* (stable-sort (cons (make-instance 'entry
-							:client client
-							:word word)
-					 (delete-if #'(lambda (entry) (eql client (slot-value entry 'client))) *leaderboard*))
-				   'entry<)))
-
-(defun handle-guess (player-name word)
-  "Updates the current leaderboard with PLAYER-NAME's new score, if valid"
-  (if (valid-word-p word) (update-leaderboard player-name word)))
+  "Updates the leaderboard (note: WORD is assumed valid); returns non-nil if the leaderboard was modified"
+  (let ((existing-entry (find-if #'(lambda (e) (eql client (slot-value e 'client))) *leaderboard*))
+	(should-update t))
+    (if existing-entry
+	(if (< (length (slot-value existing-entry 'word)) (length word))
+	    (setf (slot-value existing-entry 'word) word)
+	    (setf should-update nil))
+	(setf *leaderboard* (cons (make-instance 'entry
+						 :client client
+						 :word word)
+				  *leaderboard*)))
+    (if should-update (setf *leaderboard* (stable-sort *leaderboard* #'entry<)))
+    should-update))
 
 (defun start-server ()
   "Runs the server"
