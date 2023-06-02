@@ -279,7 +279,7 @@
   (mapcar #'(lambda (entry)
 	      (with-slots (client word) entry
 		(list (cons :name (slot-value client 'name))
-		      (cons :word word))))
+		      (cons :length (length word)))))
 	  *leaderboard*))
 
 (defun get-current-state ()
