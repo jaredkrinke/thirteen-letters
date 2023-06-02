@@ -15,6 +15,19 @@
   "Logs to the console, if *verbose* is non-nil"
   `(and *verbose* (format t ,@args)))
 
+(defun alistp (value)
+  "Tests to see if a value is an a-list"
+  (and (listp value)
+       (every #'consp value)))
+
+(defun alist-path (object &rest keys)
+  "Walk down an AList path"
+  (labels ((alist-path-recursive (object keys)
+	     (if keys
+		 (alist-path-recursive (cdr (assoc (car keys) object)) (cdr keys))
+		 object)))
+    (alist-path-recursive object keys)))
+
 (defun get-time ()
   "Return a timestamp (in seconds, as a ratio)"
   (/ (get-internal-real-time) internal-time-units-per-second))
@@ -147,7 +160,7 @@
 
 ;;; Leaderboard entries
 (defclass entry ()
-  ((player-id :initarg :player-id)
+  ((client :initarg :client)
    (word :initarg :word)
    (time :initform (get-time))))
 
@@ -158,8 +171,8 @@
 
 (defmethod print-object ((object entry) stream)
   (print-unreadable-object (object stream :type t)
-    (with-slots (player-id word time) object
-      (format stream "~s: ~s (~f)" player-id word time))))
+    (with-slots (client word time) object
+      (format stream "~a: ~s (~f)" client word time))))
 
 ;;; TODO: Seems like a macro might make sense...
 (defun entry< (a b)
@@ -172,6 +185,10 @@
 ;;; Server
 
 ;;; WebSocket server
+(defparameter *message-handlers*
+  (list (cons "guess" 'client-guess)
+	(cons "rename" 'client-rename)))
+
 (defvar *clients* nil)
 
 (defclass socket (hunchensocket:websocket-resource)
@@ -189,12 +206,17 @@
 (defmethod hunchensocket:client-disconnected ((socket socket) client)
   (lp:submit-task *queue* 'client-disconnect client))
 
-(defmethod hunchensocket:text-message-received ((socket socket) client message)
-  (let ((object (handler-case (json:decode-json-from-string message) (t () nil))))
-    (cond (object
-	   (TODO (format nil "Received: ~a" object))))))
+(defmethod hunchensocket:text-message-received ((socket socket) client text)
+  ;;; TODO: There's probably a macro for this sort of non-nil chaining...
+  (let* ((message (handler-case (json:decode-json-from-string text) (t () nil)))
+	 (type (and (alistp message) (alist-path message :type)))
+	 (handler (and type (cdr (assoc type *message-handlers* :test #'string-equal)))))
+    (if handler
+	(lp:submit-task *queue* handler client message)
+	(spew "Couldn't find a handler for message: ~s~%" text))))
 
 (defun find-websocket-handler (request)
+  "Finds any relevant WebSocket handler, based on the REQUEST's SCRIPT-PATH"
   (if (equal (hunchentoot:script-name request) *socket-path*)
       *socket*))
 
@@ -208,9 +230,10 @@
 				:port *socket-port*))
 
 ;;; TODO: Plus or star?
-(defparameter *round-time* 3 "Length of each round (in seconds)")
-(defparameter *intermission-time* 1 "Length of time between rounds (in seconds)")
+(defparameter *round-time* 30 "Length of each round (in seconds)")
+(defparameter *intermission-time* 10 "Length of time between rounds (in seconds)")
 
+(defvar *round-done* t "True if there is no active round")
 (defvar *done* t "True if the server should stop")
 (defvar *queue* nil "Task queue")
 
@@ -220,59 +243,110 @@
 (defvar *round-end* nil)
 (defvar *leaderboard* nil)
 
-(defun broadcast (object)
+(defun message->json (message)
+  "Encodes MESSAGE as JSON"
+
+(defun send (client message)
+  "Sends MESSAGE to CLIENT"
+  (let ((text (message->json message)))
+    (spew "Sending to ~a: ~a~%" client text)
+    (hunchensocket:send-text-message client text)))
+  (json:encode-json-to-string message))
+
+(defun broadcast (message)
   "Broadcasts a message to all players"
-  (let ((text (json:encode-json-to-string object)))
+  (let ((text (message->json message)))
     (spew "Broadcast: ~a~%" text)
     (loop for client in (hunchensocket:clients *socket*)
 	  do (hunchensocket:send-text-message client text))))
 
+(defun make-message (type object)
+  "Makes a message of type TYPE"
+  (cons (cons :type type)
+	object))
+
+(defun send-message (client type object)
+  "Sends a message to the given client"
+  (send client (make-message type object)))
+
 (defun broadcast-message (type object)
   "Broadcasts a message of type TYPE to all players"
-  (let ((message (cons (cons :type type)
-		       object)))
-    (broadcast message)))
+  (broadcast (make-message type object)))
+
+(defun leaderboard->alist ()
+  "Formats *LEADERBOARD* entries as a-lists"
+  ;;; TODO: Consider just going straight to JSON?
+  (mapcar #'(lambda (entry)
+	      (with-slots (client word) entry
+		(list (cons :name (slot-value client 'name))
+		      (cons :word word))))
+	  *leaderboard*))
+
+(defun get-current-state ()
+  "Gets the current puzzle state"
+  (list (cons :scrambled *scrambled*)
+	(cons :remaining (float (max 0 (/ (- *round-end* (get-internal-real-time))
+					  internal-time-units-per-second))))
+	(cons :leaderboard (leaderboard->alist))))
 
 (defun broadcast-state ()
   "Broadcasts puzzle state to all players"
-  (let ((state (list (cons :scrambled *scrambled*)
-		     (cons :remaining (float (max 0 (/ (- *round-end* (get-internal-real-time)) internal-time-units-per-second))))
-		     (cons :leaderboard *leaderboard*))))
+  (let ((state (get-current-state)))
     (broadcast-message :state state)))
 
 (defun broadcast-result ()
   "Broadcasts result to all players"
   (let ((result (list (cons :solution *solution*)
-		      (cons :leaderboard *leaderboard*))))
+		      (cons :leaderboard (leaderboard->alist)))))
     (broadcast-message :result result)))
 
 (defun client-connect (client)
+  "Handles a client connection work item"
   (spew "Client connected: ~a~%" client)
   (push client *clients*)
-  (TODO "Send current state"))
+  (send client (get-current-state)))
 
 (defun client-disconnect (client)
+  "Handles a client disconnection work item"
   (spew "Client disconnected: ~a~%" client)
-  (setf *clients* (delete-if #'(lambda (c) (eql c client)) *clients*))
-  (TODO "Remove entries from leaderboard?"))
+  (setf *clients* (delete-if #'(lambda (c) (eql c client)) *clients*)))
+
+(defun client-rename (client message)
+  "Handles a work item that associates a name with the given client"
+  (let ((name (alist-path message :name)))
+    (cond (name
+	   (setf (slot-value client 'name) name)
+	   (spew "Renamed ~a to ~s~%" client (slot-value client 'name))))))
+
+(defun client-guess (client message)
+  "Handles a guess work item from the given client"
+  (cond ((not *round-done*)
+	 (let ((word (alist-path message :word)))
+	   (if (and word (valid-word-p word))
+	       (progn
+		 (update-leaderboard client word)
+		 (broadcast-state)))))
+	(t (spew "Guess arrived after round ended~%"))))
 
 (defun round-start (&optional (difficulty 0))
   "Selects a new puzzle and broadcasts to all players"
   (setf *solution* (get-random (nth difficulty *bucketed-words*)))
   (setf *scrambled* (scramble *solution*))
-  (setf *round-end* (+ (get-internal-real-time) *round-time*))
+  (setf *round-end* (+ (get-internal-real-time) (* *round-time* internal-time-units-per-second)))
   (setf *leaderboard* nil)
+  (setf *round-done* nil)
   (broadcast-state))
 
 (defun round-end ()
   "Broadcasts the results of the round that just ended"
+  (setf *round-done* t)
   (broadcast-result))
 
 (defun run-round ()
   "Runs a single round"
-  (lp:submit-task *queue* #'round-start)
+  (lp:submit-task *queue* 'round-start)
   (sleep *round-time*)
-  (lp:submit-task *queue* #'round-end)
+  (lp:submit-task *queue* 'round-end)
   (sleep *intermission-time*))
 
 (defun valid-word-p (word)
@@ -280,13 +354,14 @@
   (TODO "Test word is valid!")
   t)
 
-(defun update-leaderboard (player-id word)
+(defun update-leaderboard (client word)
   "Updates the leaderboard (note: WORD is assumed valid"
+  ;;; TODO: Don't replace if worse than existing guess!
   (setf *leaderboard* (stable-sort (cons (make-instance 'entry
-							:player-id player-id
+							:client client
 							:word word)
-					 (delete-if #'(lambda (entry) (equal player-id (slot-value entry 'player-id))) *leaderboard*))
-				   #'entry<)))
+					 (delete-if #'(lambda (entry) (eql client (slot-value entry 'client))) *leaderboard*))
+				   'entry<)))
 
 (defun handle-guess (player-name word)
   "Updates the current leaderboard with PLAYER-NAME's new score, if valid"
