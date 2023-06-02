@@ -59,6 +59,7 @@
 (defparameter *puzzle-length* 13)
 (defparameter *difficulty-buckets* 10)
 
+;;; TODO: Don't inject the word list at compile time since we're not compiling ahead of time anymore
 (defmacro define-bucketed-words ()
   "Injects word list at compile time"
   (with-open-file (stream "data.lisp")
