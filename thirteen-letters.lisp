@@ -36,6 +36,13 @@
   "Randomly selects an item from SEQUENCE"
   (nth (random (length sequence)) sequence))
 
+(defmacro loop-over-lines ((line-var path) &body body)
+  "Run LOOP over each line of a file"
+  `(with-open-file (stream ,path) ; TODO: gensym!
+     (loop for ,line-var = (read-line stream nil)
+	   while ,line-var
+	   ,@body)))
+
 (defun shuffle (sequence &rest rest &key &allow-other-keys)
   "Returns a copy of SEQUENCE (as an array) with its elements shuffled (note: extra arguments are passed to MAKE-ARRAY)"
   (let* ((length (length sequence))
@@ -66,6 +73,34 @@
     `(defparameter *bucketed-words* ',(read stream))))
 
 (define-bucketed-words)
+
+(defvar *valid-words*
+  (let ((hash-table (make-hash-table :test 'equal :size 264097)))
+    (loop-over-lines (word "yawl/yawl-0.3.2.03/word.list")
+      do (setf (gethash word hash-table) t))
+    hash-table))
+
+(defun only-letters-p (word)
+  "Returns non-nil if the word consists solely of the letters A through Z"
+  (let ((min1 (char-code #\a))
+	(max1 (char-code #\z))
+	(min2 (char-code #\A))
+	(max2 (char-code #\Z)))
+    (loop for character across word
+	  do (let ((code (char-code character)))
+	       (if (not (or (and (>= code min1) (<= code max1))
+			    (and (>= code min2) (<= code max2))))
+		   (return-from only-letters-p nil))))
+    t))
+
+(defun get-letter-counts (word)
+  "Gets an array of the letter counts within a word"
+  (let ((normalized-word (string-downcase word))
+	(base (char-code #\a))
+	(counts (make-array 26)))
+    (loop for letter across normalized-word
+	  do (incf (aref counts (- (char-code letter) base))))
+    counts))
 
 (defun fully-scrambled-p (scrambled solution)
   "Returns NIL if any character in SCRAMBLED matches a letter in SOLUTION"
@@ -240,6 +275,7 @@
 
 ;;; Server main worker logic
 (defvar *solution* nil)
+(defvar *solution-letters* nil)
 (defvar *scrambled* nil)
 (defvar *round-end* nil)
 (defvar *leaderboard* nil)
@@ -332,6 +368,7 @@
 (defun round-start (&optional (difficulty 0))
   "Selects a new puzzle and broadcasts to all players"
   (setf *solution* (get-random (nth difficulty *bucketed-words*)))
+  (setf *solution-letters* (get-letter-counts *solution*))
   (setf *scrambled* (scramble *solution*))
   (setf *round-end* (+ (get-internal-real-time) (* *round-time* internal-time-units-per-second)))
   (setf *leaderboard* nil)
@@ -352,8 +389,9 @@
 
 (defun valid-word-p (word)
   "Returns true if WORD is a real word and uses letters from *SCRAMBLED*"
-  (TODO "Test word is valid!")
-  t)
+  (and (only-letters-p word)
+       (gethash word *valid-words*)
+       (every #'<= (get-letter-counts word) *solution-letters*)))
 
 (defun update-leaderboard (client word)
   "Updates the leaderboard (note: WORD is assumed valid); returns non-nil if the leaderboard was modified"
