@@ -302,13 +302,14 @@
   (cons (cons :type type)
 	object))
 
-(defun leaderboard->alist ()
-  "Formats *LEADERBOARD* entries as a-lists"
+(defun leaderboard->alist (&key reveal)
+  "Formats *LEADERBOARD* entries as a-lists (revealing words if REVEAL is non-nil)"
   ;;; TODO: Consider just going straight to JSON?
   (mapcar #'(lambda (entry)
 	      (with-slots (client word) entry
 		(list (cons :name (slot-value client 'name))
-		      (cons :length (length word)))))
+		      (cons :word (if reveal word
+				      (char-repeat #\? (length word)))))))
 	  *leaderboard*))
 
 (defun get-current-state ()
@@ -316,12 +317,12 @@
   (if *round-done*
       (list (cons :type :result)
 	    (cons :solution *solution*)
-	    (cons :leaderboard (leaderboard->alist)))
+	    (cons :leaderboard (leaderboard->alist :reveal t)))
       (list (cons :type :state)
 	    (cons :scrambled *scrambled*)
 	    (cons :remaining (float (max 0 (/ (- *round-end* (get-internal-real-time))
 					      internal-time-units-per-second))))
-	    (cons :leaderboard (leaderboard->alist)))))
+	    (cons :leaderboard (leaderboard->alist :reveal nil)))))
 
 (defun broadcast-state ()
   "Broadcasts puzzle state to all players"
