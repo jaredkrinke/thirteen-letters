@@ -406,7 +406,8 @@
 
   (setf hunchensocket:*websocket-dispatch-table* (list 'find-websocket-handler))
   (hunchentoot:start *server*)
-  
+
+  (spew "Server started")
   (loop while (not *done*)
 	do (run-round))
   
@@ -414,7 +415,8 @@
   (setf hunchensocket:*websocket-dispatch-table* nil)
   
   (lp:end-kernel :wait t)
-  (setf *queue* nil))
+  (setf *queue* nil)
+  (spew "Server stopped"))
 
 (defun stop-server ()
   "Stops the server"
