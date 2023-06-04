@@ -194,9 +194,9 @@
 		 :text-align "center")
      
      ("#letters > div" :display "inline-block"
-		       :margin "0.5em"
-		       :padding "0.25em"
-		       :border "0.1em solid"
+                       :padding "0.125em"
+                       :font-weight "bold"
+                       :font-size "150%"
 		       :text-transform "uppercase")
      (.invisible :display "hidden")
      (.hidden :display "none"))))
