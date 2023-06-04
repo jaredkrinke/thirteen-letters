@@ -279,23 +279,26 @@
 (defvar *scrambled* nil)
 (defvar *round-end* nil)
 (defvar *leaderboard* nil)
+(defvar *news-fragment* nil)
 
 (defun message->json (message)
   "Encodes MESSAGE as JSON"
-
-(defun send (client message)
-  "Sends MESSAGE to CLIENT"
-  (let ((text (message->json message)))
-    (spew "Sending to ~a: ~a~%" client text)
-    (hunchensocket:send-text-message client text)))
   (json:encode-json-to-string message))
 
+(defun send (client message)
+  "Sends MESSAGE to CLIENT, if non-nil"
+  (if message
+      (let ((text (message->json message)))
+	(spew "Sending to ~a: ~a~%" client text)
+	(hunchensocket:send-text-message client text))))
+
 (defun broadcast (message)
-  "Broadcasts a message to all players"
-  (let ((text (message->json message)))
-    (spew "Broadcast: ~a~%" text)
-    (loop for client in (hunchensocket:clients *socket*)
-	  do (hunchensocket:send-text-message client text))))
+  "Broadcasts a message to all players, if non-nil"
+  (if message
+      (let ((text (message->json message)))
+	(spew "Broadcast: ~a~%" text)
+	(loop for client in (hunchensocket:clients *socket*)
+	      do (hunchensocket:send-text-message client text)))))
 
 (defun make-message (type object)
   "Makes a message of type TYPE"
@@ -328,11 +331,17 @@
   "Broadcasts puzzle state to all players"
   (broadcast (get-current-state)))
 
+(defun get-current-news ()
+  "Gets current news as a message, if any"
+  (if *news-fragment* (list (cons :type :news)
+			    (cons :fragment *news-fragment*))))
+
 (defun client-connect (client)
   "Handles a client connection work item"
   (spew "Client connected: ~a~%" client)
   (push client *clients*)
-  (send client (get-current-state)))
+  (send client (get-current-state))
+  (send client (get-current-news)))
 
 (defun client-disconnect (client)
   "Handles a client disconnection work item"

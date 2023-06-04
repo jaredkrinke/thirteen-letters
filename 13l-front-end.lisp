@@ -53,6 +53,7 @@
 	   (tbody (get-id "tbody"))
 	   (result-div (get-id "result"))
 	   (debug-div (get-id "debug"))
+	   (news-div (get-id "news"))
 	   (name-input (get-id "name"))
 	   (start-button (get-id "start"))
 	   (guess-input (get-id "guess"))
@@ -145,6 +146,10 @@
        
        (defun handle-error ()
 	 (error "WebSocket error!"))
+
+       (defun update-news (message)
+	 (let ((fragment (ps:chain message fragment)))
+	   (setf (ps:chain news-div inner-h-t-m-l) fragment)))
        
        (defun handle-update (event)
 	 (watch
@@ -156,7 +161,9 @@
 	       (update-leaderboard message))
 	      ("result"
 	       (update-leaderboard message)
-	       (round-ended message)))
+	       (round-ended message))
+	      ("news"
+	       (update-news message)))
 	    nil)))
        
        (defun send (message)
@@ -299,6 +306,7 @@ It's also a game that needs better documentation!")))
 	  (:div :id "top" :class "top hidden"
 		(:h3 :class "center" "Leaderboard")
 		(:table (:tbody :id "tbody")))
+	  (:div :id "news")
 	  (:div :id "debug"))
     (:script (:raw *script*))))
 
