@@ -9,7 +9,8 @@
 
 ;;; JavaScript
 ;;; TODO: Path should be shared with back-end code
-(defparameter *web-socket-uri* "ws://127.0.0.1:13131/ws/13l")
+;(defparameter *web-socket-uri* "ws://127.0.0.1:13131/ws/13l")
+(defparameter *web-socket-uri* "wss://api.schemescape.com/ws/13l")
 
 (ps:defpsmacro TODO (message)
   `(debug ,message))
@@ -139,7 +140,8 @@
 	  nil))
        
        (defun send-guess ()
-	 (let* ((word (ps:chain guess-input value))
+	 (let* ((word-raw (ps:chain guess-input value))
+		(word ((ps:chain word-raw to-lower-case)))
 		(message (ps:create type "guess"
 				    word word)))
 	   (send message)
