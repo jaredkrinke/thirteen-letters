@@ -279,7 +279,7 @@
 (defvar *scrambled* nil)
 (defvar *round-end* nil)
 (defvar *leaderboard* nil)
-(defvar *news-fragment* nil)
+(defvar *news* nil)
 
 (defun message->json (message)
   "Encodes MESSAGE as JSON"
@@ -333,8 +333,14 @@
 
 (defun get-current-news ()
   "Gets current news as a message, if any"
-  (if *news-fragment* (list (cons :type :news)
-			    (cons :fragment *news-fragment*))))
+  (if *news* (list (cons :type :news)
+		   (cons :fragment *news*))))
+
+(defun queue-news-update (news)
+  "Queues a task to update *NEWS* and broadcast the update"
+  (lp:submit-task *queue* #'(lambda ()
+			      (setf *news* news)
+			      (broadcast (get-current-news)))))
 
 (defun client-connect (client)
   "Handles a client connection work item"
