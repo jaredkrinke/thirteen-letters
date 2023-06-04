@@ -266,8 +266,8 @@
 				:port *socket-port*))
 
 ;;; TODO: Plus or star?
-(defparameter *round-time* 30 "Length of each round (in seconds)")
-(defparameter *intermission-time* 10 "Length of time between rounds (in seconds)")
+(defparameter *round-time* 60 "Length of each round (in seconds)")
+(defparameter *intermission-time* 15 "Length of time between rounds (in seconds)")
 
 (defvar *round-done* t "True if there is no active round")
 (defvar *done* t "True if the server should stop")
