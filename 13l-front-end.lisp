@@ -180,19 +180,22 @@
 	      :flex-direction "column"
 	      :align-items "center"
 	      :max-width "40em"
-	      :margin "auto")
+	      :margin "auto"
+	      :padding "1em")
      ("#guess, #result" :font-size "150%"
 			:margin-top "1em")
      ("#start" :margin "1em"
 	       :padding "0.25em 1em"
 	       :font-size "150%"
 	       :font-weight "bold")
-     ("#letters" :margin "1em")
+     ("#letters" :margin "1em"
+		 :text-align "center")
      
-     ("#letters > span" :margin "0.5em"
-			:padding "0.25em"
-			:border "0.1em solid"
-			:text-transform "uppercase")
+     ("#letters > div" :display "inline-block"
+		       :margin "0.5em"
+		       :padding "0.25em"
+		       :border "0.1em solid"
+		       :text-transform "uppercase")
      (.invisible :display "hidden")
      (.hidden :display "none"))))
 
@@ -227,7 +230,7 @@ It's also a game that needs better documentation!")))
 	  (:div :id "main" :class "hidden main"
 		(:div :id "letters"
 		      (dotimes (n 13)
-			(:span :id (format nil "l~d" n) "?")))
+			(:div :id (format nil "l~d" n) "?")))
 		(:input :id "guess" :type "text"))
 	  (:div :id "result" :class "hidden"
 		"Winner: "
