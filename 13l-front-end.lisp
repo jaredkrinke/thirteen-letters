@@ -52,19 +52,30 @@
 	   (guess-input (get-id "guess"))
 	   (winner-span (get-id "winner"))
 	   (winning-word-span (get-id "winning-word")))
+       (defun hide (element)
+	 ((ps:chain element class-list add) "hidden"))
+       
+       (defun show (element)
+	 ((ps:chain element class-list remove) "hidden"))
+       
        (defun update-letters (word)
 	 (dotimes (i (ps:chain word length))
 	   (let ((letter-span (get-id (+ "l" i))))
 	     (setf (ps:chain letter-span inner-text) (aref word i)))))
+       
        (defun round-started (message)
 	 (setf scrambled (ps:chain message scrambled))
+	 (hide result-div)
 	 (update-letters scrambled))
+       
        (defun round-ended (message)
+	 (show result-div)
 	 (let* ((entries (ps:chain message leaderboard))
 		(winning-entry (and entries (aref entries 0))))
 	   (update-letters (ps:chain message solution))
 	   (setf (ps:chain winner-span inner-text) (if winning-entry (ps:chain winning-entry name) "(no one)"))
 	   (setf (ps:chain winning-word-span inner-text) (if winning-entry (ps:chain winning-entry word) "(none)"))))
+       
        (defun update-leaderboard (message)
 	 (let ((entries (ps:chain message leaderboard)))
 	   (clear-children tbody)
@@ -78,8 +89,10 @@
 		   (append-text col-word (ps:chain entry word))
 		   ((ps:chain row append-child) col-word)
 		   ((ps:chain tbody append-child) row))))))
+       
        (defun handle-error ()
 	 (error "WebSocket error!"))
+       
        (defun handle-update (event)
 	 (watch
 	  (let* ((json (ps:chain event data))
@@ -92,10 +105,12 @@
 	       (update-leaderboard message)
 	       (round-ended message)))
 	    nil)))
+       
        (defun send (message)
 	 (if socket
 	     (let ((json ((ps:chain *json* stringify) message)))
 	       ((ps:chain socket send) json))))
+       
        (defun send-rename ()
 	 (let* ((nameRaw (ps:chain name-input value))
 		(name ((ps:chain nameRaw trim))))
@@ -104,25 +119,37 @@
 				name name)))))
        (defun handle-start ()
 	 (watch
-	  (debug "Starting...")
+	  (hide intro-div)
 	  (if (not socket)
 	      (progn (setf socket (ps:new (-web-socket *web-socket-uri*)))
 		     (setf (ps:chain socket onopen) send-rename)
 		     (setf (ps:chain socket onmessage) handle-update)))
 	  nil))
+       
        (defun send-guess ()
 	 (let* ((word (ps:chain guess-input value))
 		(message (ps:create type "guess"
 				    word word)))
-	   (send message)))
+	   (send message)
+	   (setf (ps:chain guess-input value) "")))
+       
        (defun handle-key-down (event)
 	 (watch
 	  (let ((key (ps:chain event key)))
-	    (if (= key "Enter") (send-guess)))))
+	    (if (= key "Enter")
+		(progn (send-guess))))))
+
        (setf (ps:chain start-button onclick) handle-start)
        (setf (ps:chain start-button onerror) handle-error)
        (setf (ps:chain guess-input onkeydown) handle-key-down)
        nil))))
+
+;;; CSS
+(defparameter *css*
+  (cl-css:css
+   '(
+     (.hidden :display "none")
+     )))
 
 ;;; HTML
 (defparameter *intro* (sp:with-html-string ("**Thirteen Letters** is a game where players compete to find the longest word that can be constructed from the given set of letters.
@@ -136,6 +163,7 @@ It's also a game that needs better documentation!")))
      (:html
       (:head
        (:title ,title))
+      (:style (:raw *css*))
       (:body ,@body))))
 
 (defun make-index-html ()
@@ -151,13 +179,13 @@ It's also a game that needs better documentation!")))
     (:div :id "main"
 	  (:div :id "letters"
 		(dotimes (n 13)
-		  (:span :id (format nil "l~d" n) "A")))
+		  (:span :id (format nil "l~d" n) "?")))
 	  (:input :id "guess" :type "text"))
     (:div :id "top"
 	  (:h3 "Leaderboard")
 	  (:table (:thead (:tr (:th "Name") (:th "Word")))
 		  (:tbody :id "tbody")))
-    (:div :id "result"
+    (:div :id "result" :class "hidden"
 	  (:h2 "End of round")
 	  (:p "Winner: " (:span :id "winner"))
 	  (:p "Word: " (:span :id "winning-word")))
