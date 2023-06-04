@@ -28,7 +28,8 @@
   `((ps:chain ,node append-child) ((ps:chain document create-text-node) ,text)))
 
 (defparameter *script*
-  (ps (defparameter *web-socket-uri* (ps:lisp *web-socket-uri*))
+  (ps
+    (defparameter *web-socket-uri* (ps:lisp *web-socket-uri*))
     (defun debug (message)
       (let ((debug-div ((ps:chain document get-element-by-id) "debug"))
 	    (node ((ps:chain document create-element) "p")))
@@ -42,8 +43,12 @@
     (watch
      (let ((socket)
 	   (scrambled)
+	   (timer-id)
+	   (round-end-timestamp)
 	   (intro-div (get-id "intro"))
 	   (main-div (get-id "main"))
+	   (time-div (get-id "time"))
+	   (time-left-span (get-id "time-left"))
 	   (top-div (get-id "top"))
 	   (tbody (get-id "tbody"))
 	   (result-div (get-id "result"))
@@ -64,6 +69,7 @@
        (defun round-started (message)
 	 (setf scrambled (ps:chain message scrambled))
 	 (show guess-input)
+	 (show time-div)
 	 (hide result-div)
 	 (setf (ps:chain guess-input value) "")
 	 ((ps:chain guess-input focus))
@@ -71,14 +77,44 @@
        
        (defun round-ended (message)
 	 (show result-div)
+	 (hide time-div)
 	 (hide guess-input)
 	 (let* ((entries (ps:chain message leaderboard))
 		(winning-entry (and entries (aref entries 0))))
 	   (update-letters (ps:chain message solution))
 	   (setf (ps:chain winner-span inner-text) (if winning-entry (ps:chain winning-entry name) "(no one)"))
 	   (setf (ps:chain winning-word-span inner-text) (if winning-entry (ps:chain winning-entry word) "---"))))
+
+       (defun unregister-timer ()
+	 (if timer-id (clear-timeout timer-id)))
+
+       (defun reset-remaining ()
+	 (unregister-timer)
+	 (setf (ps:chain time-left-span inner-text) "")
+	 nil)
+
+       (defun update-time-left ()
+	 (reset-remaining)
+	 (if round-end-timestamp
+	     (let* ((remaining-ms (max 0 (- round-end-timestamp ((ps:chain -date now)))))
+		    (remaining-seconds (/ remaining-ms 1000))
+		    (floored ((ps:chain -math floor) remaining-seconds))
+		    (text (+ "" floored))
+		    (fraction-ms (max 0 ((ps:chain -math floor) (* (- remaining-seconds
+								      floored)
+								   1000)))))
+	       (setf (ps:chain time-left-span inner-text) text)
+	       (setf timer-id (set-timeout update-time-left fraction-ms))))
+	 nil)
+
+       (defun update-remaining (remaining)
+	 (setf round-end-timestamp (+ ((ps:chain -date now))
+				      ((ps:chain -math floor) (* remaining 1000))))
+	 (update-time-left)
+	 nil)
        
        (defun update-leaderboard (message)
+	 ;;; Update leaderboard
 	 (let ((entries (ps:chain message leaderboard)))
 	   (clear-children tbody)
 	   (if entries
@@ -99,7 +135,13 @@
 		 ((ps:chain col class-list add) "center")
 		 (append-text col "(empty)")
 		 ((ps:chain row append-child) col)
-		 ((ps:chain tbody append-child) row)))))
+		 ((ps:chain tbody append-child) row))))
+
+	 ;;; Also update time, if needed
+	 (let ((remaining (ps:chain message remaining)))
+	   (if remaining
+	       (update-remaining remaining)
+	       (reset-remaining))))
        
        (defun handle-error ()
 	 (error "WebSocket error!"))
@@ -174,6 +216,13 @@
      (".main" :display "flex"
 	      :flex-direction "column"
 	      :align-items "center")
+     (".time" :display "flex"
+	      :flex-direction "column"
+	      :align-items "center"
+	      :position "absolute"
+	      :padding "0.25em"
+	      :top 0
+	      :right 0)
      (".top" :width "100%"
 	     :display "flex"
 	     :flex-direction "column"
@@ -198,6 +247,10 @@
                        :font-weight "bold"
                        :font-size "150%"
 		       :text-transform "uppercase")
+     ("#time-title" :font-weight "bold")
+     ("#time-left" :font-size "125%")
+     (".time > p" :padding "0.125em"
+		  :margin 0)
      (.invisible :display "hidden")
      (.hidden :display "none"))))
 
@@ -234,6 +287,9 @@ It's also a game that needs better documentation!")))
 		      (dotimes (n 13)
 			(:div :id (format nil "l~d" n) "?")))
 		(:input :id "guess" :type "text"))
+	  (:div :id "time" :class "hidden time"
+		(:p :id "time-title" "Time")
+		(:p :id "time-left"))
 	  (:div :id "result" :class "hidden"
 		"Winner: "
 		(:span :id "winner")
