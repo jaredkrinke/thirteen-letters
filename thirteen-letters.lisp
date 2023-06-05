@@ -280,6 +280,7 @@
 (defvar *round-end* nil)
 (defvar *leaderboard* nil)
 (defvar *news* nil)
+(defvar *stats* (make-hash-table :test 'equal))
 
 (defun message->json (message)
   "Encodes MESSAGE as JSON"
@@ -381,9 +382,18 @@
   (setf *round-done* nil)
   (broadcast-state))
 
+(defun update-stats ()
+  "Updates overall win statistics"
+  (let ((winner (first *leaderboard*)))
+    (if winner
+	(with-slots (client) winner
+	  (with-slots (name) client
+	    (if name (setf (gethash name *stats*) (1+ (or (gethash name *stats*) 0)))))))))
+
 (defun round-end ()
   "Broadcasts the results of the round that just ended"
   (setf *round-done* t)
+  (update-stats)
   (broadcast-state))
 
 (defun run-round ()
