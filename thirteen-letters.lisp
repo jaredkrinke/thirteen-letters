@@ -2,7 +2,8 @@
   (:documentation "Thirteen-letter word scramble game")
   (:nicknames :13l)
   (:use :cl)
-  (:local-nicknames (:lp :lparallel))
+  (:local-nicknames (:lp :lparallel)
+		    (:sp :spinneret))
   (:export #:play
 	   #:menu))
 
@@ -390,11 +391,27 @@
 	  (with-slots (name) client
 	    (if name (setf (gethash name *stats*) (1+ (or (gethash name *stats*) 0)))))))))
 
+(defun format-stats ()
+  "Format *STATS* into an HTML string"
+  (let ((pairs nil)
+	(*print-pretty* nil)
+	(sp:*html-style* :tree))
+    (maphash #'(lambda (k v) (pushnew (cons k v) pairs)) *stats*)
+    (setf pairs (sort pairs #'(lambda (a b) (> (cdr a) (cdr b)))))
+    (sp:with-html-string
+      (:h3 "Hall of Fame")
+      (:table (:tr (:th :class "center" "Name") (:th :class "center" "Wins"))
+	      (loop for pair in pairs
+		    for i from 1 to 5
+		    do (:tr (:td (car pair)) (:td :class "right" (cdr pair))))))))
+
 (defun round-end ()
   "Broadcasts the results of the round that just ended"
   (setf *round-done* t)
+  (broadcast-state)
   (update-stats)
-  (broadcast-state))
+  (if *leaderboard*
+      (queue-news-update (format-stats))))
 
 (defun run-round ()
   "Runs a single round"

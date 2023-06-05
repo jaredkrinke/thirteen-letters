@@ -233,6 +233,7 @@
      (".top" :width "100%"
 	     :display "flex"
 	     :flex-direction "column"
+	     :align-items "center"
 	     :margin-top "1em")
      ("#root" :display "flex"
 	      :flex-direction "column"
@@ -306,7 +307,7 @@ It's also a game that needs better documentation!")))
 	  (:div :id "top" :class "top hidden"
 		(:h3 :class "center" "Leaderboard")
 		(:table (:tbody :id "tbody")))
-	  (:div :id "news")
+	  (:div :id "news" :class "top")
 	  (:div :id "debug"))
     (:script (:raw *script*))))
 

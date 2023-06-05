@@ -2,6 +2,7 @@
   :depends-on (#:lparallel
 	       #:hunchentoot
 	       #:hunchensocket
+	       #:spinneret
 	       #:cl-json)
   :serial t
   :components ((:file "thirteen-letters"))
