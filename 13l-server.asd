@@ -1,12 +1,7 @@
-(defsystem #:13l-server
-  :depends-on (#:lparallel
-	       #:hunchentoot
-	       #:hunchensocket
-	       #:spinneret
-	       #:cl-json)
+(defsystem #:13l-web
+  :depends-on (#:spinneret
+	       #:spinneret/cl-markdown
+	       #:parenscript
+	       #:cl-css)
   :serial t
-  :components ((:file "shared")
-	       (:file "server"))
-  :build-operation program-op
-  :build-pathname "13l-server"
-  :entry-point "13ls:start-server")
+  :components ((:file "web")))

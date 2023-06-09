@@ -1,19 +1,16 @@
-(defpackage :13l-front-end
-  (:documentation "HTML/JS/CSS generator for Thirteen Letters")
-  (:nicknames :13lf)
+(defpackage :13l-web
+  (:documentation "HTML/JS/CSS generator for Thirteen Letters on the web")
+  (:nicknames :13lw)
   (:use :cl)
   (:import-from #:parenscript #:ps)
   (:local-nicknames (#:sp #:spinneret)))
 
-(in-package :13lf)
+(in-package :13lw)
 
 ;;; JavaScript
 ;;; TODO: Path should be shared with back-end code
-;(defparameter *web-socket-uri* "ws://127.0.0.1:13131/ws/13l")
-(defparameter *web-socket-uri* "wss://api.schemescape.com/ws/13l")
-
-(ps:defpsmacro TODO (message)
-  `(debug ,message))
+;(defparameter *web-socket-url* "ws://127.0.0.1:13131/ws/13l")
+(defparameter *web-socket-url* "wss://api.schemescape.com/ws/13l")
 
 (ps:defpsmacro get-id (id)
   `((ps:chain document get-element-by-id) ,id))
@@ -27,9 +24,9 @@
 (ps:defpsmacro append-text (node text)
   `((ps:chain ,node append-child) ((ps:chain document create-text-node) ,text)))
 
-(defparameter *script*
+(defun make-script (&key web-socket-url)
   (ps
-    (defparameter *web-socket-uri* (ps:lisp *web-socket-uri*))
+    (defparameter *web-socket-url* (ps:lisp web-socket-url))
     (defun debug (message)
       (let ((debug-div ((ps:chain document get-element-by-id) "debug"))
 	    (node ((ps:chain document create-element) "p")))
@@ -183,7 +180,7 @@
 	  (show main-div)
 	  (show top-div)
 	  (if (not socket)
-	      (progn (setf socket (ps:new (-web-socket *web-socket-uri*)))
+	      (progn (setf socket (ps:new (-web-socket *web-socket-url*)))
 		     (setf (ps:chain socket onopen) send-rename)
 		     (setf (ps:chain socket onmessage) handle-update)))
 	  nil))
@@ -279,7 +276,7 @@ It's also a game that needs better documentation!")))
       (:style (:raw *css*))
       (:body ,@body))))
 
-(defun make-index-html ()
+(defun make-index-html (&key web-socket-url)
   "Outputs root HTML page"
   (page (:title "(thirteen-letters)")
     (:div :id "root"
@@ -309,15 +306,18 @@ It's also a game that needs better documentation!")))
 		(:table (:tbody :id "tbody")))
 	  (:div :id "news" :class "top")
 	  (:div :id "debug"))
-    (:script (:raw *script*))))
+    (:script (:raw (make-script :web-socket-url web-socket-url)))))
 
 
 ;;; Generate index.html
+(defun write-index-html (&key (web-socket-url *web-socket-url*))
 (setf sp:*suppress-inserted-spaces* t)
 
-(let ((*print-pretty* nil)
-      (sp:*html-style* :tree))
-  (with-open-file (out "index.html" :direction :output
-				    :if-exists :supersede)
-    (setf sp:*html* out)
-    (make-index-html)))
+  (let ((*print-pretty* nil)
+	(sp:*html-style* :tree))
+    (with-open-file (out "index.html" :direction :output
+				      :if-exists :supersede)
+      (setf sp:*html* out)
+      (make-index-html :web-socket-url web-socket-url))))
+
+(write-index-html)
