@@ -1,5 +1,5 @@
-(load "thirteen-letters.lisp")
+(load "shared.lisp")
+(load "console.lisp")
 
-(13l:menu)
+(13lc:menu)
 (quit)
-

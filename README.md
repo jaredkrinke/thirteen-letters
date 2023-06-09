@@ -11,10 +11,10 @@ There are 10 difficulty levels.
 ### Setup/install
 Version 1 is provided in source form only, so you'll need a Common Lisp environment (e.g. SBCL or ECL).
 
-Just clone this repository and then load "shared.lisp" and "console.lisp" (or, if you're familiar with Quicklisp/ASDF, you can load the system defined in "13l-console.asd") and run `(13lc:menu)`, for example:
+Just clone this repository and then load "main.lisp", for example:
 
 ```sh
-sbcl --load shared.lisp --load console.lisp --eval '(13lc:menu)'
+sbcl --load main.lisp
 ```
 
-Follow the on-screen prompts to play. Enter `(quit)` to exit.
+Follow the on-screen prompts to play.
