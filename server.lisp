@@ -41,6 +41,32 @@
   "Return a timestamp (in seconds, as a ratio)"
   (/ (get-internal-real-time) internal-time-units-per-second))
 
+;;; TODO: Hash table conversion functions aren't actually used anymroe
+(defun hash-table->alist (table)
+  "Converts a hash table to an a-list"
+  (let ((alist nil))
+    (maphash #'(lambda (k v) (pushnew (cons k v) alist)) table)
+    alist))
+
+(defun alist->hash-table (alist &key test)
+  "Converts an a-list to a hash table"
+  (let ((table (make-hash-table :test test)))
+    (loop for (k . v) in alist
+	  do (setf (gethash k table) v))
+    table))
+
+(defun olist-upsert (olist item &key key (test 'eql) create update less-than)
+  "Inserts or updates an item in an ordered list"
+  (let ((updated nil)
+	(existing-entry (find item olist :key key :test test)))
+    (if existing-entry
+	(setf updated (funcall update existing-entry))
+	(progn
+	  (setf olist (nconc olist (list (funcall create))))
+	  (setf updated t)))
+    (values (stable-sort olist less-than) updated)))
+
+;;; Helpers
 (defvar *valid-words*
   (let ((hash-table (make-hash-table :test 'equal :size 264097)))
     (loop-over-lines (word "yawl/yawl-0.3.2.03/word.list")
@@ -143,6 +169,7 @@
 ;;; TODO: Plus or star?
 (defparameter *round-time* 60 "Length of each round (in seconds)")
 (defparameter *intermission-time* 15 "Length of time between rounds (in seconds)")
+(defparameter *stats-file-name* "stats.txt" "File name for stats")
 
 (defvar *round-done* t "True if there is no active round")
 (defvar *done* t "True if the server should stop")
@@ -155,7 +182,7 @@
 (defvar *round-end* nil)
 (defvar *leaderboard* nil)
 (defvar *news* nil)
-(defvar *stats* (make-hash-table :test 'equal))
+(defvar *stats* nil)
 
 (defun message->json (message)
   "Encodes MESSAGE as JSON"
@@ -263,19 +290,36 @@
     (if winner
 	(with-slots (client) winner
 	  (with-slots (name) client
-	    (if name (setf (gethash name *stats*) (1+ (or (gethash name *stats*) 0)))))))))
+	    (if name
+		(setf *stats*
+		      (olist-upsert *stats*
+				    name
+				    :key #'car
+				    :test 'equal
+				    :create #'(lambda () (cons name 1))
+				    :update #'(lambda (e) (incf (cdr e)))
+				    :less-than #'(lambda (a b) (> (cdr a) (cdr b)))))))))))
+
+(defun write-stats ()
+  "Persists win statistics to disk"
+  (with-open-file (stream *stats-file-name*
+			  :direction :output
+			  :if-exists :supersede)
+    (write *stats* :stream stream)))
+
+(defun read-stats ()
+  "Reads persisted stats from disk"
+  (with-open-file (stream *stats-file-name* :if-does-not-exist nil)
+    (setf *stats* (if stream (read stream) nil))))
 
 (defun format-stats ()
   "Format *STATS* into an HTML string"
-  (let ((pairs nil)
-	(*print-pretty* nil)
+  (let ((*print-pretty* nil)
 	(sp:*html-style* :tree))
-    (maphash #'(lambda (k v) (pushnew (cons k v) pairs)) *stats*)
-    (setf pairs (sort pairs #'(lambda (a b) (> (cdr a) (cdr b)))))
     (sp:with-html-string
       (:h3 "Hall of Fame")
       (:table (:tr (:th :class "center" "Name") (:th :class "center" "Wins"))
-	      (loop for pair in pairs
+	      (loop for pair in *stats*
 		    for i from 1 to 5
 		    do (:tr (:td (car pair)) (:td :class "right" (cdr pair))))))))
 
@@ -301,41 +345,47 @@
        (every #'<= (get-letter-counts word) *solution-letters*)))
 
 (defun update-leaderboard (client word)
-  "Updates the leaderboard (note: WORD is assumed valid); returns non-nil if the leaderboard was modified"
-  (let ((existing-entry (find-if #'(lambda (e) (eql client (slot-value e 'client))) *leaderboard*))
-	(should-update t))
-    (if existing-entry
-	(if (< (length (slot-value existing-entry 'word)) (length word))
-	    (progn
-	      (setf (slot-value existing-entry 'word) word)
-	      (setf (slot-value existing-entry 'time) (get-time)))
-	    (setf should-update nil))
-	(setf *leaderboard* (cons (make-instance 'entry
-						 :client client
-						 :word word)
-				  *leaderboard*)))
-    (if should-update (setf *leaderboard* (stable-sort *leaderboard* #'entry<)))
-    should-update))
+  "Updates the leaderboard (note: WORD is assumed valid); returns non-nil if the leaderboard was updated"
+  (multiple-value-bind (leaderboard updated)
+      (olist-upsert *leaderboard*
+		    client
+		    :key #'(lambda (e) (slot-value e 'client))
+		    :create #'(lambda ()
+				(make-instance 'entry
+					       :client client
+					       :word word))
+		    :update #'(lambda (e)
+				(if (< (length (slot-value e 'word)) (length word))
+				    (progn
+				      (setf (slot-value e 'word) word)
+				      (setf (slot-value e 'time) (get-time)))))
+		    :less-than #'entry<)
+    (setf *leaderboard* leaderboard)
+    updated))
 
 (defun start-server ()
   "Runs the server"
-  (setf *done* nil)
-  (setf lp:*kernel* (lp:make-kernel 1))
-  (setf *queue* (lp:make-channel))
+  (unwind-protect
+       (progn
+	 (read-stats)
+	 (setf *done* nil)
+	 (setf lp:*kernel* (lp:make-kernel 1))
+	 (setf *queue* (lp:make-channel))
 
-  (setf hunchensocket:*websocket-dispatch-table* (list 'find-websocket-handler))
-  (hunchentoot:start *server*)
+	 (setf hunchensocket:*websocket-dispatch-table* (list 'find-websocket-handler))
+	 (hunchentoot:start *server*)
 
-  (spew "Server started")
-  (loop while (not *done*)
-	do (run-round))
-  
-  (hunchentoot:stop *server*)
-  (setf hunchensocket:*websocket-dispatch-table* nil)
-  
-  (lp:end-kernel :wait t)
-  (setf *queue* nil)
-  (spew "Server stopped"))
+	 (spew "Server started")
+	 (loop while (not *done*)
+	       do (run-round))
+
+	 (hunchentoot:stop *server*)
+	 (setf hunchensocket:*websocket-dispatch-table* nil)
+
+	 (lp:end-kernel :wait t)
+	 (setf *queue* nil))
+    (write-stats)
+    (spew "Server stopped")))
 
 (defun stop-server ()
   "Stops the server"
