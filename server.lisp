@@ -306,7 +306,9 @@
 	(should-update t))
     (if existing-entry
 	(if (< (length (slot-value existing-entry 'word)) (length word))
-	    (setf (slot-value existing-entry 'word) word)
+	    (progn
+	      (setf (slot-value existing-entry 'word) word)
+	      (setf (slot-value existing-entry 'time) (get-time)))
 	    (setf should-update nil))
 	(setf *leaderboard* (cons (make-instance 'entry
 						 :client client
