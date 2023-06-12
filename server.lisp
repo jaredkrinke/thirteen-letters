@@ -6,6 +6,7 @@
   (:local-nicknames (:lp :lparallel)
 		    (:sp :spinneret))
   (:export #:start-server
+	   #:start-server-thread
 	   #:stop-server))
 
 (in-package :13ls)
@@ -178,7 +179,15 @@
 (defvar *socket* (make-instance 'socket))
 (defvar *server* (make-instance 'hunchensocket:websocket-acceptor
 				:address "127.0.0.1"
-				:port *socket-port*))
+				:port *socket-port*
+				:document-root nil
+				:error-template-directory nil
+				:access-log-destination nil))
+
+;;; Disable Hunchentoot default status messages
+(defmethod hunchentoot:acceptor-status-message ((acceptor (eql *server*)) http-status-code &rest args)
+  (declare (ignore args))
+  "")
 
 ;;; TODO: Plus or star?
 (defparameter *round-time* 60 "Length of each round (in seconds)")
@@ -411,6 +420,10 @@
 	 (setf *queue* nil))
     (write-stats)
     (spew "Server stopped")))
+
+(defun start-server-thread ()
+  "Runs the server in its own thread"
+  (bt:make-thread 'start-server :name "13l-server"))
 
 (defun stop-server ()
   "Stops the server"
