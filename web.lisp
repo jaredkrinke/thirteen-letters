@@ -253,7 +253,7 @@
 
        (defun schedule-validation-if-needed ()
 	 (if (not validation-timer-id)
-	     (setf validation-timer-id (set-timeout validate-current-guess 0))))
+	     (setf validation-timer-id (set-timeout validate-current-guess 50))))
 
        (defun handle-key-down (event)
 	 (watch
@@ -289,7 +289,7 @@
      (".center" :text-align "center")
      (".right" :text-align "right")
      (".caps" :text-transform "uppercase")
-     (".invalid" :border "solid 2px red")
+     (".invalid" :outline "solid 2px red")
      
      (".main" :display "flex"
 	      :flex-direction "column"
