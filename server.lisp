@@ -147,7 +147,8 @@
   (:default-initargs :client-class 'client))
 
 (defclass client (hunchensocket:websocket-client)
-  ((name :initform "(unknown)"))
+  ((name :initform "(unknown)")
+   (active :initform nil))
   (:documentation "WebSocket client"))
 
 (defmethod hunchensocket:client-connected ((socket socket) client)
@@ -246,6 +247,7 @@
 	    (cons :scrambled *scrambled*)
 	    (cons :remaining (float (max 0 (/ (- *round-end* (get-internal-real-time))
 					      internal-time-units-per-second))))
+	    (cons :clients (count-if #'(lambda (client) (slot-value client 'active)) *clients*))
 	    (cons :leaderboard (leaderboard->alist :reveal nil)))))
 
 (defun broadcast-state ()
@@ -280,12 +282,14 @@
   (let ((name (alist-path message :name)))
     (cond (name
 	   (setf (slot-value client 'name) name)
+	   (setf (slot-value client 'active) t)
 	   (spew "Renamed ~a to ~s~%" client (slot-value client 'name))))))
 
 (defun client-guess (client message)
   "Handles a guess work item from the given client"
   (cond ((not *round-done*)
 	 (let ((word (alist-path message :word)))
+	   (if word (setf (slot-value client 'active) t))
 	   (if (and word
 		    (valid-word-p word)
 		    (update-leaderboard client word))
