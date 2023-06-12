@@ -28,20 +28,46 @@
   (ps
     (defparameter *web-socket-url* (ps:lisp web-socket-url))
     (defparameter *name-key* "13l_name")
+    (defparameter *a* ((@ "a" char-code-at) 0))
+    (defparameter *z* ((@ "z" char-code-at) 0))
+
     (defun debug (message)
       (let ((debug-div ((@ document get-element-by-id) "debug"))
 	    (node ((@ document create-element) "p")))
 	(append-text node message)
 	((@ debug-div append-child) node)
 	nil))
+
     (defun error (error-string)
       (debug (+ "ERROR: " error-string))
       nil)
 
+    (defun get-letter-counts (word)
+      (let ((counts (ps:create))
+	    (code))
+	(loop for i from 0 to 25 do (setf (elt counts i) 0))
+	(loop for i from 0 to (1- (@ word length))
+	      do (setf code ((@ word char-code-at) i))
+		 (if (and (>= code *a*)
+			  (<= code *z*))
+		     (incf (elt counts (- code *a*)))
+		     (return-from get-letter-counts nil)))
+	counts))
+
+    (defun is-valid (expected-counts word)
+      (let ((actual-counts (get-letter-counts word)))
+	(if (not actual-counts) (return-from is-valid nil))
+	(loop for i from 0 to 25
+	      do (if (> (elt actual-counts i) (elt expected-counts i))
+		     (return-from is-valid nil)))
+	t))
+
     (watch
      (let ((socket)
 	   (scrambled)
+	   (scrambled-letter-counts (get-letter-counts ""))
 	   (timer-id)
+	   (validation-timer-id)
 	   (countdown-end-timestamp)
 	   (intro-div (get-id "intro"))
 	   (main-div (get-id "main"))
@@ -69,6 +95,7 @@
        
        (defun round-started (message)
 	 (setf scrambled (@ message scrambled))
+	 (setf scrambled-letter-counts (get-letter-counts scrambled))
 	 (show guess-input)
 	 (show time-div)
 	 (setf (@ time-title-span inner-text) "Time")
@@ -113,7 +140,7 @@
 
        (defun update-remaining (remaining)
 	 (setf countdown-end-timestamp (+ ((@ -date now))
-				      ((@ -math floor) (* remaining 1000))))
+					  ((@ -math floor) (* remaining 1000))))
 	 (update-time-left)
 	 nil)
        
@@ -174,8 +201,8 @@
 	       ((@ socket send) json))))
        
        (defun send-rename ()
-	 (let* ((nameRaw (@ name-input value))
-		(name ((@ nameRaw trim))))
+	 (let* ((name-raw (@ name-input value))
+		(name ((@ name-raw trim))))
 	   (if name
 	       (progn
 		 (send (ps:create type "rename"
@@ -204,20 +231,36 @@
 	  ((@ document add-event-listener) "visibilitychange" #'(lambda ()
 								  (set-timeout handle-visibility-changed 100)))
 	  nil))
+
+       (defun get-guess ()
+	 ((@ ((@ (@ guess-input value) to-lower-case)) trim)))
        
        (defun send-guess ()
-	 (let* ((word-raw (@ guess-input value))
-		(word ((@ word-raw to-lower-case)))
+	 (let* ((word (get-guess))
 		(message (ps:create type "guess"
 				    word word)))
 	   (send message)
-	   (setf (@ guess-input value) "")))
-       
+	   (setf (@ guess-input value) "")
+	   ((@ guess-input class-list remove) "invalid")))
+
+       (defun validate-current-guess ()
+	 (setf validation-timer-id nil)
+	 (let ((word (get-guess)))
+	   (if (is-valid scrambled-letter-counts word)
+	       ((@ guess-input class-list remove) "invalid")
+	       ((@ guess-input class-list add) "invalid")))
+	 nil)
+
+       (defun schedule-validation-if-needed ()
+	 (if (not validation-timer-id)
+	     (setf validation-timer-id (set-timeout validate-current-guess 0))))
+
        (defun handle-key-down (event)
 	 (watch
 	  (let ((key (@ event key)))
 	    (if (= key "Enter")
-		(progn (send-guess))))))
+		(progn (send-guess))
+		(schedule-validation-if-needed)))))
 
        (defun handle-name-key-down (event)
 	 (watch
@@ -246,6 +289,7 @@
      (".center" :text-align "center")
      (".right" :text-align "right")
      (".caps" :text-transform "uppercase")
+     (".invalid" :border "solid 2px red")
      
      (".main" :display "flex"
 	      :flex-direction "column"
