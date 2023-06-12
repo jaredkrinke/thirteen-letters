@@ -286,7 +286,9 @@
 ;;; HTML
 (defparameter *intro* (sp:with-html-string ("**Thirteen Letters** is a game where players compete to find the longest word that can be constructed from the given set of letters.
 
-It's also a game that needs better documentation!")))
+Enter a name and click **Start** to get started.
+
+During each round, a set of thirteen letters will be shown. Type in the longest word you can find and hit Enter/Return to submit your guess. You may continue guessing until the timer in the upper-right counts down to zero.")))
 
 (defmacro page ((&key title) &body body)
   "Outputs an HTML page"
