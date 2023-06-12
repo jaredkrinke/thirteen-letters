@@ -219,7 +219,13 @@
 	    (if (= key "Enter")
 		(progn (send-guess))))))
 
+       (defun handle-name-key-down (event)
+	 (watch
+	  (let ((key (@ event key)))
+	    (if (= key "Enter") (handle-start)))))
+
        (setf (@ start-button onclick) handle-start)
+       (setf (@ name-input onkeydown) handle-name-key-down)
        (setf (@ start-button onerror) handle-error)
        (setf (@ guess-input onkeydown) handle-key-down)
 
