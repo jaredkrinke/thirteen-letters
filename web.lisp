@@ -49,6 +49,7 @@
 	   (time-title-span (get-id "time-title"))
 	   (time-left-span (get-id "time-left"))
 	   (top-div (get-id "top"))
+	   (player-count-span (get-id "player-count"))
 	   (tbody (get-id "tbody"))
 	   (result-div (get-id "result"))
 	   (debug-div (get-id "debug"))
@@ -131,14 +132,13 @@
 		   ((@ col-word class-list add) "right")
 		   ((@ col-word class-list add) "caps")
 		   ((@ row append-child) col-word)
-		   ((@ tbody append-child) row)))
-	       (let ((row ((@ document create-element) "tr"))
-		     (col ((@ document create-element) "td")))
-		 ((@ col set-attribute) "colspan" 2)
-		 ((@ col class-list add) "center")
-		 (append-text col "(empty)")
-		 ((@ row append-child) col)
-		 ((@ tbody append-child) row))))
+		   ((@ tbody append-child) row)))))
+
+	 ;;; Also update player count, if needed
+	 (let ((client-count (@ message clients)))
+	   (if (>= client-count 0)
+	       (setf (@ player-count-span inner-text)
+		     (max 1 client-count))))
 
 	 ;;; Also update time, if needed
 	 (let ((remaining (@ message remaining)))
@@ -327,7 +327,11 @@ It's also a game that needs better documentation!")))
 		")")
 	  (:div :id "top" :class "top hidden"
 		(:h3 :class "center" "Leaderboard")
-		(:table (:tbody :id "tbody")))
+		(:table (:tbody :id "tbody"))
+		(:p :class "center"
+		    "(player count: "
+		    (:span :id "player-count" "1")
+		    ")"))
 	  (:div :id "news" :class "top")
 	  (:div :id "debug"))
     (:script (:raw (make-script :web-socket-url web-socket-url)))))
