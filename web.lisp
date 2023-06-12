@@ -100,8 +100,8 @@
 		    (floored ((@ -math floor) remaining-seconds))
 		    (text (+ "" floored))
 		    (fraction-ms (max 0 ((@ -math floor) (* (- remaining-seconds
-								      floored)
-								   1000)))))
+							       floored)
+							    1000)))))
 	       (setf (@ time-left-span inner-text) text)
 	       (setf timer-id (set-timeout update-time-left fraction-ms))))
 	 nil)
@@ -179,15 +179,25 @@
 		 ((@ local-storage set-item) *name-key* name))))
 	 nil)
 
+       (defun handle-visibility-changed ()
+	 (if (and (not socket)
+		  (not (@ document hidden)))
+	     (connect-socket))
+	 nil)
+
+       (defun connect-socket ()
+	 (setf socket (ps:new (-web-socket *web-socket-url*)))
+	 (setf (@ socket onopen) send-rename)
+	 (setf (@ socket onmessage) handle-update)
+	 (setf (@ socket onclose) #'(lambda () (setf socket nil))))
+
        (defun handle-start ()
 	 (watch
 	  (hide intro-div)
 	  (show main-div)
 	  (show top-div)
-	  (if (not socket)
-	      (progn (setf socket (ps:new (-web-socket *web-socket-url*)))
-		     (setf (@ socket onopen) send-rename)
-		     (setf (@ socket onmessage) handle-update)))
+	  (if (not socket) (connect-socket))
+	  ((@ document add-event-listener) "visibilitychanged" handle-visibility-changed)
 	  nil))
        
        (defun send-guess ()
