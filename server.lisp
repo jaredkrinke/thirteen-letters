@@ -180,6 +180,7 @@
 (defvar *solution-letters* nil)
 (defvar *scrambled* nil)
 (defvar *round-end* nil)
+(defvar *intermission-end* nil)
 (defvar *leaderboard* nil)
 (defvar *news* nil)
 (defvar *stats* nil)
@@ -223,6 +224,8 @@
   (if *round-done*
       (list (cons :type :result)
 	    (cons :solution *solution*)
+	    (cons :remaining (float (max 0 (/ (- *intermission-end* (get-internal-real-time))
+					      internal-time-units-per-second))))
 	    (cons :leaderboard (leaderboard->alist :reveal t)))
       (list (cons :type :state)
 	    (cons :scrambled *scrambled*)
@@ -326,6 +329,7 @@
 (defun round-end ()
   "Broadcasts the results of the round that just ended"
   (setf *round-done* t)
+  (setf *intermission-end* (+ (get-internal-real-time) (* *intermission-time* internal-time-units-per-second)))
   (broadcast-state)
   (update-stats)
   (if *leaderboard*
