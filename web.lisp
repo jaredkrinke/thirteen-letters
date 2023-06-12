@@ -181,7 +181,7 @@
 
        (defun handle-visibility-changed ()
 	 (if (and (not socket)
-		  (not (@ document hidden)))
+		  (= (@ document visibility-state) "visible"))
 	     (connect-socket))
 	 nil)
 
@@ -197,7 +197,8 @@
 	  (show main-div)
 	  (show top-div)
 	  (if (not socket) (connect-socket))
-	  ((@ document add-event-listener) "visibilitychanged" handle-visibility-changed)
+	  ((@ document add-event-listener) "visibilitychange" #'(lambda ()
+								  (set-timeout handle-visibility-changed 100)))
 	  nil))
        
        (defun send-guess ()
