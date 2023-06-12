@@ -50,6 +50,7 @@
 
 (defun menu ()
   "Show the title menu and prompt for difficulty level (or exit)"
+  (initialize-random-state)
   (format t
 	  "
 === Thirteen Letters ===

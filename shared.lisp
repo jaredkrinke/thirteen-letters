@@ -7,6 +7,7 @@
 	   #:*puzzle-length*
 	   #:char-repeat
 	   #:get-random
+	   #:initialize-random-state
 	   #:shuffle
 	   #:shuffle-string
 	   #:scramble
@@ -23,6 +24,10 @@
     `(defparameter *bucketed-words* ',(read stream))))
 
 (define-bucketed-words)
+
+(defun initialize-random-state ()
+  "Initializes the random number generator"
+  (setf *random-state* (make-random-state t)))
 
 (defun get-random (sequence)
   "Randomly selects an item from SEQUENCE"

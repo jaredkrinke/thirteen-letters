@@ -389,6 +389,7 @@
 
 (defun start-server ()
   "Runs the server"
+  (initialize-random-state)
   (unwind-protect
        (progn
 	 (read-stats)
