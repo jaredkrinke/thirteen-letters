@@ -30,6 +30,19 @@
 		 object)))
     (alist-path-recursive object keys)))
 
+(defmacro defun-debounced (name period (&rest vars) &body body)
+  "Defines a debounced function that won't be called if previously called within PERIOD seconds"
+  ;;; TODO: gensym!
+  `(let ((period-native (* ,period internal-time-units-per-second))
+	 (last-called nil))
+     (defun ,name (,@vars)
+       ;;; TODO: gensym!
+       (let ((current-time (get-internal-real-time)))
+       (if (or (not last-called) (> current-time (+ last-called period-native)))
+	   (progn
+	     (setf last-called current-time)
+	     ,@body))))))
+
 (defmacro loop-over-lines ((line-var path) &body body)
   "Run LOOP over each line of a file"
   `(with-open-file (stream ,path) ; TODO: gensym!
@@ -170,6 +183,8 @@
 (defparameter *round-time* 60 "Length of each round (in seconds)")
 (defparameter *intermission-time* 15 "Length of time between rounds (in seconds)")
 (defparameter *stats-file-name* "stats.txt" "File name for stats")
+
+(defvar *on-activity* nil "Optional callback to call when there is activity on the server")
 
 (defvar *round-done* t "True if there is no active round")
 (defvar *done* t "True if the server should stop")
@@ -365,6 +380,7 @@
 				      (setf (slot-value e 'time) (get-time)))))
 		    :less-than #'entry<)
     (setf *leaderboard* leaderboard)
+    (if (and updated *on-activity*) (funcall *on-activity*))
     updated))
 
 (defun start-server ()
