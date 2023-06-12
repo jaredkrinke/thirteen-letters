@@ -3,3 +3,5 @@
 *.fasl
 index.html
 *.sh
+stats.txt
+!notify.sh
