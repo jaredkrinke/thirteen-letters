@@ -9,8 +9,8 @@
 
 ;;; JavaScript
 ;;; TODO: Path should be shared with back-end code
-;(defparameter *web-socket-url* "ws://127.0.0.1:13131/ws/13l")
-(defparameter *web-socket-url* "wss://api.schemescape.com/ws/13l")
+(defvar *web-socket-url* "wss://api.schemescape.com/ws/13l")
+(defvar *web-socket-url-override* nil)
 
 (ps:defpsmacro get-id (id)
   `((ps:chain document get-element-by-id) ,id))
@@ -310,14 +310,14 @@ It's also a game that needs better documentation!")))
 
 
 ;;; Generate index.html
-(defun write-index-html (&key (web-socket-url *web-socket-url*))
-(setf sp:*suppress-inserted-spaces* t)
-
+(defun write-index-html (&key (web-socket-url (or *web-socket-url-override* *web-socket-url*)))
+  (setf sp:*suppress-inserted-spaces* t)
   (let ((*print-pretty* nil)
 	(sp:*html-style* :tree))
     (with-open-file (out "index.html" :direction :output
 				      :if-exists :supersede)
       (setf sp:*html* out)
-      (make-index-html :web-socket-url web-socket-url))))
+      (make-index-html :web-socket-url web-socket-url))
+    (format t "Wrote index.html with WebSocket URL: ~a~%" web-socket-url)))
 
 (write-index-html)
