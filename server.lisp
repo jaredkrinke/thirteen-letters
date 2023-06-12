@@ -2,11 +2,11 @@
   (:documentation "Web server for online, multiplayer Thirteen Letters game")
   (:nicknames :13ls)
   (:use :cl
-	:13l)
+        :13l)
   (:local-nicknames (:lp :lparallel)
 		    (:sp :spinneret))
   (:export #:start-server
-	  #:stop-server))
+	   #:stop-server))
 
 (in-package :13ls)
 
