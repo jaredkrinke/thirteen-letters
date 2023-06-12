@@ -27,6 +27,7 @@
 (defun make-script (&key web-socket-url)
   (ps
     (defparameter *web-socket-url* (ps:lisp web-socket-url))
+    (defparameter *name-key* "13l_name")
     (defun debug (message)
       (let ((debug-div ((ps:chain document get-element-by-id) "debug"))
 	    (node ((ps:chain document create-element) "p")))
@@ -172,8 +173,12 @@
 	 (let* ((nameRaw (ps:chain name-input value))
 		(name ((ps:chain nameRaw trim))))
 	   (if name
-	       (send (ps:create type "rename"
-				name name)))))
+	       (progn
+		 (send (ps:create type "rename"
+				  name name))
+		 ((ps:chain local-storage set-item) *name-key* name))))
+	 nil)
+
        (defun handle-start ()
 	 (watch
 	  (hide intro-div)
@@ -202,6 +207,10 @@
        (setf (ps:chain start-button onclick) handle-start)
        (setf (ps:chain start-button onerror) handle-error)
        (setf (ps:chain guess-input onkeydown) handle-key-down)
+
+       ;;; Try to restore name from localStorage
+       (let ((saved-name ((ps:chain local-storage get-item) *name-key*) ""))
+	 (if saved-name (setf (ps:chain name-input value) saved-name)))
        nil))))
 
 ;;; CSS
