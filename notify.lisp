@@ -1,2 +1,4 @@
 (defun-debounced notify (* 30 60) ()
-  (uiop/run-program:run-program "./notify.sh"))
+  (bt:make-thread #'(lambda ()
+		      (uiop/run-program:run-program "./notify.sh"))
+		  :name "NotifyOneShot"))
