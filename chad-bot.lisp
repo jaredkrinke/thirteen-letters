@@ -92,7 +92,8 @@
 	      (lambda ()
 		(format t "Connected!~%")
 		(send-json client (list (cons :type "rename")
-					(cons :name *name*)))))
+					(cons :name *name*)
+					(cons :bot t)))))
 
       (wsd:on :close client
 	      (lambda (&key code reason)

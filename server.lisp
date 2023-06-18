@@ -140,7 +140,8 @@
 
 (defclass client (hunchensocket:websocket-client)
   ((name :initform "(unknown)")
-   (active :initform nil))
+   (active :initform nil)
+   (bot :initform nil))
   (:documentation "WebSocket client"))
 
 (defmethod hunchensocket:client-connected ((socket socket) client)
@@ -283,6 +284,7 @@
     (cond (name
 	   (setf (slot-value client 'name) name)
 	   (setf (slot-value client 'active) t)
+	   (if (alist-path message :bot) (setf (slot-value client 'bot) t))
 	   (spew "Renamed ~a to ~s~%" client (slot-value client 'name))))))
 
 (defun client-guess (client message)
@@ -384,7 +386,7 @@
 				      (setf (slot-value e 'time) (get-time)))))
 		    :less-than #'entry<)
     (setf *leaderboard* leaderboard)
-    (if (and updated *on-activity*) (funcall *on-activity*))
+    (if (and updated *on-activity*) (funcall *on-activity* :client client))
     updated))
 
 (defun start-server ()
