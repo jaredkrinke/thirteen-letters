@@ -100,15 +100,6 @@
 		   (return-from only-letters-p nil))))
     t))
 
-(defun get-letter-counts (word)
-  "Gets an array of the letter counts within a word"
-  (let ((normalized-word (string-downcase word))
-	(base (char-code #\a))
-	(counts (make-array 26)))
-    (loop for letter across normalized-word
-	  do (incf (aref counts (- (char-code letter) base))))
-    counts))
-
 ;;; Leaderboard entries
 (defclass entry ()
   ((client :initarg :client)
@@ -409,7 +400,7 @@
 	 (setf hunchensocket:*websocket-dispatch-table* (list 'find-websocket-handler))
 	 (hunchentoot:start *server*)
 
-	 (spew "Server started")
+	 (spew "Server started~%")
 	 (loop while (not *done*)
 	       do (run-round))
 
@@ -419,7 +410,7 @@
 	 (lp:end-kernel :wait t)
 	 (setf *queue* nil))
     (write-stats)
-    (spew "Server stopped")))
+    (spew "Server stopped~%")))
 
 (defun start-server-thread ()
   "Runs the server in its own thread"

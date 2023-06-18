@@ -6,8 +6,10 @@
 	   #:*difficulty-buckets*
 	   #:*puzzle-length*
 	   #:char-repeat
+	   #:get-letter-counts
 	   #:get-random
 	   #:initialize-random-state
+	   #:letter-subset-p
 	   #:shuffle
 	   #:shuffle-string
 	   #:scramble
@@ -71,3 +73,16 @@
   (let* ((c (aref solution index))
 	 (target (position c scrambled :start index)))
     (rotatef (aref scrambled index) (aref scrambled target))))
+
+(defun get-letter-counts (word)
+  "Gets an array of the letter counts within a word"
+  (let ((normalized-word (string-downcase word))
+	(base (char-code #\a))
+	(counts (make-array 26)))
+    (loop for letter across normalized-word
+	  do (incf (aref counts (- (char-code letter) base))))
+    counts))
+
+(defun letter-subset-p (superset-letter-counts subset-letter-counts)
+  "Returns non-nil if SUBSET-LETTER-COUNTS uses only letters from SUPERSET-LETTER-COUNTS"
+  (every #'<= subset-letter-counts superset-letter-counts))
