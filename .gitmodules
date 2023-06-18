@@ -1,3 +1,6 @@
 [submodule "yawl"]
 	path = yawl
 	url = https://github.com/elasticdog/yawl.git
+[submodule "scms"]
+	path = scms
+	url = https://github.com/jaredkrinke/scms.git
