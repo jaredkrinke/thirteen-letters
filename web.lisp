@@ -281,6 +281,8 @@
 (defparameter *css*
   (cl-css:css
    '(("html, body" :margin 0)
+     ("body" :background-color "#eee"
+	     :color "#222")
      ("body, button, input" :font-family "'Cascadia Mono', 'Consolas', monospace")
      ("table" :width "100%")
      ("input" :font-size "100%")
