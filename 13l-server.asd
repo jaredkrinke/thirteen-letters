@@ -3,7 +3,7 @@
 	       #:hunchentoot
 	       #:hunchensocket
 	       #:spinneret
-	       #:cl-json)
+	       #:yason)
   :serial t
   :components ((:file "shared")
 	       (:file "server"))

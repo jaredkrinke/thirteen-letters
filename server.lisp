@@ -150,9 +150,14 @@
 (defmethod hunchensocket:client-disconnected ((socket socket) client)
   (lp:submit-task *queue* 'client-disconnect client))
 
+(defun make-keyword (string)
+  (intern (string-upcase string) :keyword))
+
 (defmethod hunchensocket:text-message-received ((socket socket) client text)
   ;;; TODO: There's probably a macro for this sort of non-nil chaining...
-  (let* ((message (handler-case (json:decode-json-from-string text) (t () nil)))
+  (let* ((yason:*parse-object-as* :alist)
+	 (yason:*parse-object-key-fn* 'make-keyword)
+	 (message (handler-case (yason:parse text) (t () nil)))
 	 (type (and (alistp message) (alist-path message :type)))
 	 (handler (and type (cdr (assoc type *message-handlers* :test #'string-equal)))))
     (if handler
@@ -202,9 +207,19 @@
 (defvar *news* nil)
 (defvar *stats* nil)
 
+(defun list->json (list stream)
+  (if (keywordp (caar list))
+      (yason:encode-alist list stream)
+      (yason:encode-plain-list-to-array list stream)))
+
 (defun message->json (message)
   "Encodes MESSAGE as JSON"
-  (json:encode-json-to-string message))
+  ;;; TODO: Rewrite to use non-cl-json or bundle cl-json with Unicode (non-BMP) fix
+  (let ((yason:*symbol-key-encoder* #'yason:encode-symbol-as-lowercase)
+	(yason:*symbol-encoder* #'yason:encode-symbol-as-lowercase)
+	(yason:*list-encoder* #'list->json))
+    (yason:with-output-to-string* ()
+      (yason:encode-alist message))))
 
 (defun send (client message)
   "Sends MESSAGE to CLIENT, if non-nil"
