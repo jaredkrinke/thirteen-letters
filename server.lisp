@@ -359,7 +359,7 @@
       (:h3 "Hall of Fame")
       (:table (:tr (:th :class "center" "Name") (:th :class "center" "Wins"))
 	      (loop for pair in *stats*
-		    for i from 1 to 5
+		    for i from 1 to 10
 		    do (:tr (:td (car pair)) (:td :class "right" (cdr pair))))))))
 
 (defun round-end ()
