@@ -7,10 +7,12 @@
 
 (in-package :chad-bot)
 
-(defparameter *name* "Chad Bot")
 (defparameter *url* "wss://api.schemescape.com/ws/13l")
+;(defparameter *play-time* 300)
+(defparameter *play-time* 10)
 
 (defvar *url-override* nil)
+(defvar *done* nil)
 
 ;;; Helpers
 (defclass word-info ()
@@ -92,7 +94,7 @@
 	      (lambda ()
 		(format t "Connected!~%")
 		(send-json client (list (cons :type "rename")
-					(cons :name *name*)
+					(cons :name (slot-value bot 'name))
 					(cons :bot t)))))
 
       (wsd:on :close client
@@ -174,15 +176,90 @@
 (defun make-bot-test (&key
 			(name "Chad Bot")
 			(vocabulary-size 1000)
-			(try-period 5)
+			(think-period 5)
 			(try-rate 10))
   "Makes a simpler bot for testing purposes"
   (make-instance 'bot
 		 :name name
 		 :url (or *url-override* *url*)
 		 :word-infos (make-vocabulary vocabulary-size)
-		 :try-period try-period
+		 :think-period think-period
 		 :try-rate try-rate))
+
+(defparameter *names* '("Mike"
+			"Chris"
+			"Matt"
+			"Josh"
+			"Jake"
+			"Nick"
+			"Andrew"
+			"Dan"
+			"Tyler"
+			"Joe"
+			"Brandon"
+			"David"
+			"Jim"
+			"Ryan"
+			"John"
+			"Zach"
+			"Justin"
+			"Bill"
+			"Tony"
+			"Rob"
+			"Jessica"
+			"Ashley"
+			"Emily"
+			"Sarah"
+			"Samantha"
+			"Amanda"
+			"Brittany"
+			"Elizabeth"
+			"Taylor"
+			"Megan"
+			"Hannah"
+			"Kayla"
+			"Lauren"
+			"Stephanie"
+			"Rachel"
+			"Jennifer"
+			"Nicole"
+			"Alexis"
+			"Victoria"
+			"Amber"))
+
+(defun run-bot (bot seconds)
+  "Lets a bot run for SECONDS seconds and then closes it"
+  (sleep seconds)
+  (format t "Stopping bot ~a~%" (slot-value bot 'name))
+  (bot-close bot))
+
+(defun spawn-bot ()
+  "Spawns a bot that runs for some amount of time"
+  (let* ((name (13l:get-random *names*))
+	 (vocabulary-size (+ 500 (random 1500)))
+	 (think-period (+ 3 (random 6)))
+	 (try-rate (+ 5 (random 15)))
+	 (play-time (+ *play-time* (random *play-time*)))
+	 (bot (make-bot-test :name name
+			     :vocabulary-size vocabulary-size
+			     :think-period think-period
+			     :try-rate try-rate)))
+    (format t "Starting bot ~a for ~a seconds~%" name play-time)
+    (bt:make-thread (lambda () (run-bot bot play-time))
+		    :name (format nil "bot-~a" name))))
+
+(defun start-bots ()
+  (setf *done* nil)
+  (bt:make-thread
+   (lambda ()
+     (loop while (not *done*)
+	   do (spawn-bot)
+	      (sleep (+ *play-time* (random *play-time*))))
+     (format t "Orchestrator ended"))
+   :name "bot-orchestrator"))
+
+(defun stop-bots ()
+  (setf *done* t))
 
 ;;; TODO: Consider sending pings:
 ;;       (loop do (sleep 60)
