@@ -8,8 +8,7 @@
 (in-package :chad-bot)
 
 (defparameter *url* "wss://api.schemescape.com/ws/13l")
-;(defparameter *play-time* 300)
-(defparameter *play-time* 10)
+(defparameter *play-time* 300)
 
 (defvar *url-override* nil)
 (defvar *done* nil)
@@ -38,19 +37,23 @@
 		 :length (length word)
 		 :letter-counts (13l:get-letter-counts word)))
 
-(defun make-vocabulary (count)
+(defun make-vocabulary (max-count &key (recall 1.0))
   "Creates a bot vocabularly using the COUNT most frequent words"
-  (let ((word-infos (make-array count :element-type 'word-info))
-	(i -1))
+  (let* ((count (floor (* max-count recall)))
+	 (word-infos (make-array count :initial-element nil))
+	 (i -1))
     (for-most-frequent-words count
-			     #'(lambda (word) (setf (aref word-infos (incf i)) (make-word-info word))))
+			     #'(lambda (word)
+				 (if (>= (random 1.0) recall)
+				     (setf (aref word-infos (incf i)) (make-word-info word)))))
     word-infos))
 
 (defun find-next-guess (word-infos letter-counts &key (start 0) (min-length 1) (tries 1000000))
   "Go through WORD-INFOS (starting at index START) TRIES times to find a matching word of length >= MIN-LENGTH"
   (loop for i from start below (min (+ start tries) (length word-infos))
 	for word-info = (aref word-infos i)
-	if (and (>= (slot-value word-info 'length) min-length)
+	if (and word-info
+		(>= (slot-value word-info 'length) min-length)
 		(13l:letter-subset-p letter-counts (slot-value word-info 'letter-counts)))
 	  do (return (slot-value word-info 'word))
 	finally (return nil)))
@@ -177,12 +180,13 @@
 			(name "Chad Bot")
 			(vocabulary-size 1000)
 			(think-period 5)
-			(try-rate 10))
+			(try-rate 10)
+			(recall 1.0))
   "Makes a simpler bot for testing purposes"
   (make-instance 'bot
 		 :name name
 		 :url (or *url-override* *url*)
-		 :word-infos (make-vocabulary vocabulary-size)
+		 :word-infos (make-vocabulary vocabulary-size :recall recall)
 		 :think-period think-period
 		 :try-rate try-rate))
 
@@ -239,11 +243,13 @@
 	 (vocabulary-size (+ 500 (random 1500)))
 	 (think-period (+ 3 (random 6)))
 	 (try-rate (+ 5 (random 15)))
+	 (recall (+ 0.8 (random 0.2)))
 	 (play-time (+ *play-time* (random *play-time*)))
 	 (bot (make-bot-test :name name
 			     :vocabulary-size vocabulary-size
 			     :think-period think-period
-			     :try-rate try-rate)))
+			     :try-rate try-rate
+			     :recall recall)))
     (format t "Starting bot ~a for ~a seconds~%" name play-time)
     (bt:make-thread (lambda () (run-bot bot play-time))
 		    :name (format nil "bot-~a" name))))
