@@ -1,6 +1,6 @@
 (in-package :13ls)
 
-(defun-debounced run-notify-script (* 30 60) ()
+(defun-debounced run-notify-script (* 20 60) ()
   (spew "Running notify.sh...~%")
   (if (uiop:getenv "IFTTT_KEY")
       (progn
