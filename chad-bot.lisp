@@ -245,14 +245,17 @@
 	 (try-rate (+ 5 (random 15)))
 	 (recall (+ 0.8 (random 0.2)))
 	 (play-time (+ *play-time* (random *play-time*)))
-	 (bot (make-bot-test :name name
-			     :vocabulary-size vocabulary-size
-			     :think-period think-period
-			     :try-rate try-rate
-			     :recall recall)))
-    (format t "Starting bot ~a for ~a seconds~%" name play-time)
-    (bt:make-thread (lambda () (run-bot bot play-time))
-		    :name (format nil "bot-~a" name))))
+	 (bot (ignore-errors (make-bot-test :name name
+					    :vocabulary-size vocabulary-size
+					    :think-period think-period
+					    :try-rate try-rate
+					    :recall recall))))
+    (if bot
+	(progn
+	  (format t "Starting bot ~a for ~a seconds~%" name play-time)
+	  (bt:make-thread (lambda () (run-bot bot play-time))
+			  :name (format nil "bot-~a" name)))
+	(format t "Failed to start bot!~%"))))
 
 (defun start-bots ()
   (setf *done* nil)
