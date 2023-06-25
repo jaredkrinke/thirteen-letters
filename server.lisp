@@ -226,7 +226,8 @@
   (if message
       (let ((text (message->json message)))
 	(spew "Sending to ~a: ~a~%" client text)
-	(hunchensocket:send-text-message client text))))
+	(ignore-errors
+	 (hunchensocket:send-text-message client text)))))
 
 (defun broadcast (message)
   "Broadcasts a message to all players, if non-nil"
