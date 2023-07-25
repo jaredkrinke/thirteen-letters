@@ -1,7 +1,7 @@
 # Thirteen Letters
 Thirteen Letters is a simple and unoriginal word game, written in Common Lisp for [Spring Lisp Game Jam (2023)](https://itch.io/jam/spring-lisp-game-jam-2023).
 
-Play the game online here: https://jaredkrinke.itch.io/13l/
+Note: The multiplayer server has been taken offline.
 
 ## Web-based multiplayer game
 Version 2 of this game is a real-time, competitive browser-based game. Each round lasts 60 seconds and players attempt to find the longest word possible using the letters provided.
@@ -11,9 +11,7 @@ translate CL and s-expressions to JavaScript, HTML, and CSS. The back end is bui
 using [Hunchentoot](https://edicl.github.io/hunchentoot/)/[Hunchensocket](https://github.com/joaotavora/hunchensocket), running on [SBCL](https://www.sbcl.org/).
 
 ### Setup/install
-No setup or install is needed for the multiplayer game, just open the following URL in your browser:
-
-https://jaredkrinke.itch.io/13l/
+The multiplayer server has been taken offline.
 
 ## Terminal-based single-player game
 Version 1 of this game was minimal (to ensure I could actually finish *something*): single-player, played in the terminal.
